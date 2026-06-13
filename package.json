@@ -1,0 +1,13 @@
+{
+  "name": "tsqcb",
+  "version": "1.0.0",
+  "description": "Hệ thống ôn tập trắc nghiệm — Đoàn Công binh Thăng Long",
+  "private": true,
+  "scripts": {
+    "start": "npx serve -l 8080",
+    "dev": "npx serve -l 8080"
+  },
+  "devDependencies": {
+    "xlsx": "^0.18.5"
+  }
+}

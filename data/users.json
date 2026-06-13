@@ -1,0 +1,13 @@
+{
+  "users": [
+    {
+      "militaryId": "00000001",
+      "fullName": "Administrator",
+      "password": "admin123",
+      "role": "admin",
+      "status": "approved",
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    }
+  ]
+}
