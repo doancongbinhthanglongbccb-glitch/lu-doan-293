@@ -1,13 +1,25 @@
 {
-  "name": "tsqcb",
-  "version": "1.0.0",
-  "description": "Hệ thống ôn tập trắc nghiệm — Đoàn Công binh Thăng Long",
+  "name": "cbquiz",
+  "version": "2.1.0",
+  "description": "Hệ thống ôn tập trắc nghiệm — Fullstack Monorepo",
   "private": true,
+  "type": "module",
   "scripts": {
-    "start": "npx serve -l 8080",
-    "dev": "npx serve -l 8080"
+    "dev": "npm run dev:backend",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "serve frontend -l 8080",
+    "start": "cd backend && npm start",
+    "migrate": "cd backend && npm run migrate",
+    "lint": "eslint frontend/js/ backend/src/ backend/database/",
+    "lint:fix": "eslint frontend/js/ backend/src/ backend/database/ --fix",
+    "format": "prettier --write \"frontend/js/**/*.js\" \"frontend/css/**/*.css\""
   },
   "devDependencies": {
+    "@eslint/js": "^9.28.0",
+    "eslint": "^9.28.0",
+    "globals": "^16.2.0",
+    "prettier": "^3.5.3",
+    "serve": "^14.2.4",
     "xlsx": "^0.18.5"
   }
 }

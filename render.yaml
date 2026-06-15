@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: cbquiz
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install && npm run migrate
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DB_PATH
+        value: /var/data/cbquiz.db
+    disk:
+      name: cbquiz-data
+      mountPath: /var/data
+      sizeGB: 1

@@ -1,0 +1,85 @@
+{
+  "title": "Hệ thống ôn tập trắc nghiệm",
+  "topics": [
+    {
+      "title": "Mẫu — Quân sự",
+      "questions": [
+        {
+          "contentHtml": "<p>Đoàn Công binh Thăng Long thuộc quân chủng nào?</p>",
+          "type": "multiplechoice",
+          "noShuffle": false,
+          "answers": [
+            { "letter": "A", "html": "<p>Lục quân</p>", "isCorrect": false },
+            { "letter": "B", "html": "<p>Hải quân</p>", "isCorrect": false },
+            { "letter": "C", "html": "<p>Phòng không - Không quân</p>", "isCorrect": false },
+            { "letter": "D", "html": "<p>Công binh</p>", "isCorrect": true }
+          ],
+          "isMul": false
+        },
+        {
+          "contentHtml": "<p>Khi nghe lệnh \"Cảnh giác\" trong quân đội, binh sĩ phải làm gì?</p>",
+          "type": "multiplechoice",
+          "noShuffle": false,
+          "answers": [
+            { "letter": "A", "html": "<p>Giữ nguyên tư thế đứng nghỉ</p>", "isCorrect": false },
+            { "letter": "B", "html": "<p>Chuyển sang tư thế sẵn sàng chiến đấu</p>", "isCorrect": true },
+            { "letter": "C", "html": "<p>Ngồi xuống nghỉ</p>", "isCorrect": false },
+            { "letter": "D", "html": "<p>Chạy về doanh trại</p>", "isCorrect": false }
+          ],
+          "isMul": false
+        },
+        {
+          "contentHtml": "<p>Chọn các hành vi thể hiện kỷ luật quân đội:</p>",
+          "type": "Multipleresponse",
+          "noShuffle": false,
+          "answers": [
+            { "letter": "A", "html": "<p>Chấp hành đúng giờ giấc</p>", "isCorrect": true },
+            { "letter": "B", "html": "<p>Tự ý rời vị trí khi chưa có lệnh</p>", "isCorrect": false },
+            { "letter": "C", "html": "<p>Giữ gìn trang bị được giao</p>", "isCorrect": true },
+            { "letter": "D", "html": "<p>Không tuân lệnh chỉ huy</p>", "isCorrect": false }
+          ],
+          "isMul": true
+        }
+      ]
+    },
+    {
+      "title": "Mẫu — Chính trị",
+      "questions": [
+        {
+          "contentHtml": "<p>Nêu vai trò của Đảng Cộng sản Việt Nam đối với Quân đội nhân dân Việt Nam.</p>",
+          "type": "essayquestion",
+          "noShuffle": false,
+          "answers": [
+            {
+              "letter": "A",
+              "html": "<p>Đảng lãnh đạo tuyệt đối, trực tiếp và toàn diện về mọi mặt hoạt động của Quân đội; xây dựng Quân đội cách mạng, chính quy, tinh nhuệ, từng bước hiện đại.</p>",
+              "isCorrect": true
+            }
+          ],
+          "isMul": false
+        },
+        {
+          "contentHtml": "<p>Chủ nghĩa Mác - Lênin là cơ sở __________ của Đảng Cộng sản Việt Nam.</p>",
+          "type": "Fillintheblank",
+          "noShuffle": false,
+          "answers": [
+            { "letter": "A", "html": "<p>tư tưởng</p>", "isCorrect": true }
+          ],
+          "isMul": false
+        },
+        {
+          "contentHtml": "<p>Câu nói \"Không có gì quý hơn độc lập, tự do\" là của ai?</p>",
+          "type": "multiplechoice",
+          "noShuffle": false,
+          "answers": [
+            { "letter": "A", "html": "<p>Chủ tịch Hồ Chí Minh</p>", "isCorrect": true },
+            { "letter": "B", "html": "<p>Đại tướng Võ Nguyên Giáp</p>", "isCorrect": false },
+            { "letter": "C", "html": "<p>Tổng Bí thư Lê Duẩn</p>", "isCorrect": false },
+            { "letter": "D", "html": "<p>Chủ tịch Tôn Đức Thắng</p>", "isCorrect": false }
+          ],
+          "isMul": false
+        }
+      ]
+    }
+  ]
+}

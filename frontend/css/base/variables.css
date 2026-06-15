@@ -1,0 +1,48 @@
+:root {
+    --primary: #ff8c00;
+    --bg-color: #f5f6fa;
+    --text-main: #333;
+    --border-color: #e2e8f0;
+    --blue-accent: #3498db;
+    --green-accent: #2ecc71;
+    --red-accent: #e74c3c;
+    --card-bg: #ffffff;
+    --header-text: #ffffff;
+    --shadow: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme='dark'] {
+    --primary: #e67e22;
+    --bg-color: #1a1d23;
+    --text-main: #e8eaed;
+    --border-color: #3d4450;
+    --blue-accent: #5dade2;
+    --green-accent: #58d68d;
+    --red-accent: #ec7063;
+    --card-bg: #252830;
+    --header-text: #ffffff;
+    --shadow: rgba(0, 0, 0, 0.3);
+}
+
+[data-theme='dark'] body {
+    background-image:
+        linear-gradient(rgba(26, 29, 35, 0.92), rgba(26, 29, 35, 0.95)),
+        url('../assets/banner-293.jpg');
+}
+
+[data-theme='dark'] .card-box,
+[data-theme='dark'] .q-box,
+[data-theme='dark'] .sidebar-box,
+[data-theme='dark'] .modal-content,
+[data-theme='dark'] .admin-panel {
+    background: var(--card-bg);
+    color: var(--text-main);
+}
+
+[data-theme='dark'] .input-group input,
+[data-theme='dark'] .opt-text,
+[data-theme='dark'] .opt-textarea {
+    background: #1a1d23;
+    color: var(--text-main);
+    border-color: var(--border-color);
+}

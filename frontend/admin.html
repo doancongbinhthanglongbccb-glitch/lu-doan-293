@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản trị</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/main.css">
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+</head>
+<body class="admin-page">
+    <header class="header">
+        <div class="header-left">
+            <img src="assets/logo.png" alt="Logo" class="header-logo">
+            <span>Quản trị câu hỏi</span>
+        </div>
+        <div class="header-right">
+            <button id="btnThemeToggle" class="btn-theme-toggle" type="button" aria-label="Chế độ tối">🌙</button>
+            <span class="user-badge" id="adminUserName">Admin</span>
+            <button id="btnGoQuiz" class="btn-home-top">📚 Trang ôn thi</button>
+            <button id="btnLogout" class="btn-home-top">Đăng xuất</button>
+        </div>
+    </header>
+
+    <div class="admin-layout">
+        <!-- Điều hướng chính Admin -->
+        <nav class="admin-section-nav">
+            <button type="button" class="admin-section-btn active" data-section="questions">📚 Quản lý câu hỏi</button>
+            <button type="button" class="admin-section-btn" data-section="users">👥 Quản lý người dùng</button>
+        </nav>
+
+        <!-- PANEL: CÂU HỎI -->
+        <div id="panelQuestions" class="admin-section-panel active">
+        <!-- Toolbar Import/Export Excel -->
+        <div class="admin-toolbar admin-toolbar-excel">
+            <div class="toolbar-heading">
+                <span class="toolbar-heading-icon">📂</span>
+                <div>
+                    <strong>Import / Export Excel</strong>
+                    <p>Tải file .xlsx để nạp câu hỏi, hoặc xuất dữ liệu ra Excel</p>
+                </div>
+            </div>
+            <div class="toolbar-group">
+                <button id="btnImportExcel" class="btn-toolbar btn-green">📥 Import Excel</button>
+                <button id="btnExportExcel" class="btn-toolbar btn-blue">📤 Export Excel</button>
+                <div class="template-dropdown">
+                    <button id="btnExportTemplate" class="btn-toolbar">📋 Tải mẫu Excel ▾</button>
+                    <div id="templateMenu" class="template-menu"></div>
+                </div>
+                <input type="file" id="fileImportExcel" accept=".xlsx,.xls" hidden>
+            </div>
+            <p class="toolbar-hint">Mẫu: <b>Trắc nghiệm</b> = Câu hỏi | Phương án | Đáp án đúng &nbsp;·&nbsp; <b>Tự luận</b> = Câu hỏi | Câu trả lời</p>
+        </div>
+
+        <!-- Stats -->
+        <div class="admin-stats">
+            <div class="stat-card"><span class="stat-label">Tiêu đề</span><span class="stat-value" id="statTitle">—</span></div>
+            <div class="stat-card"><span class="stat-label">Chủ đề</span><span class="stat-value" id="statTopics">0</span></div>
+            <div class="stat-card"><span class="stat-label">Tổng câu hỏi</span><span class="stat-value" id="statQuestions">0</span></div>
+        </div>
+
+        <div class="admin-main">
+            <!-- Sidebar Topics -->
+            <aside class="admin-sidebar">
+                <div class="sidebar-header">
+                    <h3>Chủ đề</h3>
+                    <button id="btnAddTopic" class="btn-sm btn-add-icon" title="Thêm chủ đề">+</button>
+                </div>
+                <ul id="topicList" class="admin-topic-list"></ul>
+                <div class="sidebar-actions">
+                    <button id="btnEditTopic" class="btn-sm btn-edit">Sửa</button>
+                    <button id="btnDeleteTopic" class="btn-sm btn-delete">Xóa</button>
+                </div>
+            </aside>
+
+            <!-- Questions panel -->
+            <main class="admin-content">
+                <div class="content-header">
+                    <div>
+                        <h2 id="currentTopicTitle">—</h2>
+                        <span class="badge" id="questionCountBadge">0 câu</span>
+                    </div>
+                    <div class="content-header-actions">
+                        <button id="btnClearAllQuestions" class="btn-sm btn-delete" title="Xóa toàn bộ câu hỏi trong chủ đề này">🗑 Xóa hết câu hỏi</button>
+                        <button id="btnAddQuestion" class="btn-large btn-orange" style="margin:0;padding:10px 20px;font-size:15px;">+ Thêm câu hỏi</button>
+                    </div>
+                </div>
+                <div class="table-wrap">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Nội dung</th>
+                                <th>Loại</th>
+                                <th>Đáp án đúng</th>
+                                <th>Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody id="questionTableBody"></tbody>
+                    </table>
+                </div>
+            </main>
+        </div>
+        </div><!-- /panelQuestions -->
+
+        <!-- PANEL: NGƯỜI DÙNG -->
+        <div id="panelUsers" class="admin-section-panel">
+            <div class="admin-users-header">
+                <h2>Quản lý người dùng</h2>
+                <div class="user-search-wrap">
+                    <input type="text" id="userSearchInput" placeholder="Tìm số quân nhân hoặc họ tên..." class="user-search-input">
+                </div>
+            </div>
+            <div class="user-tabs">
+                <button type="button" class="user-tab active" data-usertab="pending">Chờ duyệt <span id="pendingCount" class="tab-badge">0</span></button>
+                <button type="button" class="user-tab" data-usertab="approved">Đã duyệt <span id="approvedCount" class="tab-badge">0</span></button>
+            </div>
+            <div class="table-wrap">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Số quân nhân</th>
+                            <th>Họ tên</th>
+                            <th>Role</th>
+                            <th>Trạng thái</th>
+                            <th>Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody id="userTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Edit User -->
+    <div class="modal" id="userEditModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title">Sửa thông tin user</span>
+            </div>
+            <input type="hidden" id="editUserMilitaryId">
+            <div class="input-group">
+                <label>Số quân nhân</label>
+                <input type="text" id="editUserIdDisplay" disabled>
+            </div>
+            <div class="input-group">
+                <label>Họ và tên</label>
+                <input type="text" id="editUserFullName">
+            </div>
+            <div class="input-group">
+                <label>Role</label>
+                <select id="editUserRole">
+                    <option value="user">User</option>
+                    <option value="admin">Admin</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label>Trạng thái</label>
+                <select id="editUserStatus">
+                    <option value="pending">Chờ duyệt</option>
+                    <option value="approved">Đã duyệt</option>
+                    <option value="rejected">Từ chối</option>
+                </select>
+            </div>
+            <div class="modal-actions">
+                <button type="button" id="btnCancelEditUser" class="btn-nav">Hủy</button>
+                <button type="button" id="btnSaveEditUser" class="btn-nav" style="background:var(--primary);color:white;border-color:var(--primary);">Lưu</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Reset Password -->
+    <div class="modal" id="userResetPwdModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title">Reset mật khẩu</span>
+            </div>
+            <input type="hidden" id="resetPwdMilitaryId">
+            <p id="resetPwdUserLabel" style="margin:0 0 15px;color:#666;font-size:14px;"></p>
+            <div class="input-group">
+                <label>Mật khẩu mới</label>
+                <input type="password" id="resetPwdNew" placeholder="Tối thiểu 4 ký tự">
+            </div>
+            <div class="modal-actions">
+                <button type="button" id="btnCancelResetPwd" class="btn-nav">Hủy</button>
+                <button type="button" id="btnConfirmResetPwd" class="btn-nav" style="background:var(--primary);color:white;border-color:var(--primary);">Reset</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Topic -->
+    <div class="modal" id="topicModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title" id="topicModalTitle">Thêm chủ đề</span>
+            </div>
+            <div class="input-group">
+                <label>Tên chủ đề</label>
+                <input type="text" id="topicNameInput" placeholder="Nhập tên chủ đề">
+            </div>
+            <div class="modal-actions">
+                <button id="btnCancelTopic" class="btn-nav">Hủy</button>
+                <button id="btnSaveTopic" class="btn-nav" style="background:var(--primary);color:white;border-color:var(--primary);">Lưu</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Question -->
+    <div class="modal" id="questionModal">
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <span class="modal-title" id="questionModalTitle">Thêm câu hỏi</span>
+            </div>
+            <div class="form-grid">
+                <div class="input-group">
+                    <label>ID câu hỏi</label>
+                    <input type="number" id="qIdInput" min="1">
+                </div>
+                <div class="input-group">
+                    <label>Loại câu hỏi</label>
+                    <select id="qTypeSelect">
+                        <option value="multiplechoice">Trắc Nghiệm</option>
+                        <option value="Multipleresponse">Nhiều Đáp Án</option>
+                        <option value="Truefalse">Đúng/Sai</option>
+                        <option value="Fillintheblank">Điền Khuyết</option>
+                        <option value="essayquestion">Tự Luận</option>
+                    </select>
+                </div>
+            </div>
+            <div class="input-group">
+                <label>Nội dung câu hỏi</label>
+                <textarea id="qContentInput" rows="3" placeholder="Nhập nội dung câu hỏi"></textarea>
+            </div>
+            <div class="input-group">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                    <input type="checkbox" id="qNoShuffle"> Không trộn đáp án
+                </label>
+            </div>
+            <div class="input-group input-answers">
+                <label id="answersLabel">Đáp án (tick ✓ = đáp án đúng)</label>
+                <div id="answerRows" class="answer-rows"></div>
+                <button type="button" id="btnAddAnswer" class="btn-sm btn-add-answer">+ Thêm đáp án</button>
+            </div>
+            <div class="modal-actions modal-actions-compact">
+                <button id="btnCancelQuestion" class="btn-nav">Hủy</button>
+                <button id="btnSaveQuestion" class="btn-nav" style="background:var(--primary);color:white;border-color:var(--primary);">Lưu câu hỏi</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/entries/admin-app.js"></script>
+</body>
+</html>

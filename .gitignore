@@ -4,3 +4,6 @@ Thumbs.db
 *.log
 .env
 .env.*
+backend/database/*.db
+backend/database/*.db-*
+server/database/*.db
