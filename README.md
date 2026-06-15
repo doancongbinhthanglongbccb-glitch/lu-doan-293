@@ -1,6 +1,6 @@
-# TSQCB — Hệ thống ôn tập trắc nghiệm
+# Hệ thống ôn tập trắc nghiệm
 
-Ứng dụng web **vanilla JavaScript** phục vụ ôn thi và quản trị ngân hàng câu hỏi cho **Đoàn Công binh Thăng Long**.
+Ứng dụng web **vanilla JavaScript** phục vụ ôn thi và quản trị ngân hàng câu hỏi cho **Lữ đoàn 293**.
 
 Không cần build, không framework — chạy qua HTTP server tĩnh.
 
