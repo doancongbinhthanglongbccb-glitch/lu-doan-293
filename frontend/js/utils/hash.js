@@ -32,7 +32,7 @@ export function legacyHashStr(str) {
 }
 
 /**
- * Compute stable question hash from content, type, and answers.
+ * Compute stable question hash from content, type, and answers (order-independent).
  * @param {object} q - Question object
  * @returns {string}
  */
@@ -41,9 +41,10 @@ export function computeQuestionHash(q) {
         q.type || 'multiplechoice',
         normalizeHtml(q.contentHtml || '')
     ];
-    (q.answers || []).forEach(a => {
-        parts.push(`${a.letter || ''}:${normalizeHtml(a.html || '')}:${!!a.isCorrect}`);
-    });
+    const answerParts = (q.answers || [])
+        .map(a => `${normalizeHtml(a.html || '')}:${!!a.isCorrect}`)
+        .sort();
+    parts.push(...answerParts);
     return hashString(parts.join('|'));
 }
 

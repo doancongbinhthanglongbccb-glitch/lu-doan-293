@@ -18,7 +18,6 @@ export const MIN_PASSWORD_LENGTH = 6;
 export const DEFAULT_ADMIN = {
     militaryId: '00000001',
     fullName: 'Administrator',
-    password: 'admin123',
     role: USER_ROLES.ADMIN,
     status: USER_STATUS.APPROVED
 };

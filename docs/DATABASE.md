@@ -24,7 +24,7 @@ npm run migrate
 
 Tự động:
 1. Apply schema
-2. Seed admin `00000001` / `admin123`
+2. Seed admin `00000001` — mật khẩu từ biến môi trường `ADMIN_PASSWORD` (bắt buộc lần seed đầu)
 3. Seed quiz từ `frontend/data/questions.json` (nếu DB trống)
 
 ## Render + Persistent Disk

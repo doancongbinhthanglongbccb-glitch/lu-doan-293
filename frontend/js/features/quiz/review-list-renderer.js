@@ -1,5 +1,6 @@
 import { FILTER_MODES, EXAM_MAX_SCORE } from '../../config/index.js';
-import { htmlToText } from '../../utils/html.js';
+import { htmlToText, escapeAttr } from '../../utils/html.js';
+import { sanitizeRichHtml } from '../../utils/sanitize-html.js';
 import { hasAnswer, getQuestionTypeLabel, isTextInputType } from '../../core/grading.js';
 import { queueTypeset } from '../../ui/mathjax-renderer.js';
 
@@ -93,8 +94,8 @@ export class ReviewListRenderer {
             optHtml =
                 '<div class="formatted-answer formatted-user-answer">' +
                 (q.type === 'essayquestion'
-                    ? `<div style="white-space:pre-wrap;">${userVal}</div>`
-                    : `<div>${userVal}</div>`) +
+                    ? `<div style="white-space:pre-wrap;">${escapeAttr(userVal)}</div>`
+                    : `<div>${escapeAttr(userVal)}</div>`) +
                 '</div>';
         } else {
             q.answers.forEach((ans, j) => {
@@ -108,7 +109,7 @@ export class ReviewListRenderer {
                 optHtml +=
                     `<div class="${c}" style="cursor:default;margin-bottom:5px;padding:8px 12px;">` +
                     `<div class="opt-radio" style="${radioStyle}"><div class="opt-radio-inner" style="${radioInnerStyle}"></div></div>` +
-                    `<div class="opt-letter">${ans.letter}.</div><div class="q-content">${ans.html}</div></div>`;
+                    `<div class="opt-letter">${ans.letter}.</div><div class="q-content">${sanitizeRichHtml(ans.html)}</div></div>`;
             });
             userAnsText = st?.selected.length > 0 ? st.selected.map(idx => q.answers[idx].letter).join(', ') : 'Trống';
             corAnsText = q.answers
@@ -125,13 +126,13 @@ export class ReviewListRenderer {
             '<div style="font-weight:bold;font-size:17px;">Câu:</div>' +
             `<div class="q-badge-num">${i + 1}/${totalCount}</div>` +
             `<div class="q-badge-type">${getQuestionTypeLabel(q.type)}</div></div>` +
-            `<div class="q-content">${q.contentHtml} <span style="color:#999;font-size:13px;">(${ptsPerQ.toFixed(2)} Điểm)</span></div>` +
+            `<div class="q-content">${sanitizeRichHtml(q.contentHtml)} <span style="color:#999;font-size:13px;">(${ptsPerQ.toFixed(2)} Điểm)</span></div>` +
             '<div style="clear:both;"></div></div>' +
             `<div class="options-list" style="margin-bottom:15px;">${optHtml}</div>` +
             '<div class="rev-bot" style="justify-content:space-between;">' +
             '<div style="display:flex;gap:20px;flex-wrap:wrap;">' +
-            `<div>Đáp Án Của Bạn: <b>${userAnsText}</b></div>` +
-            `<div>Đáp Án Đúng: <b style="color:var(--green-accent);">${corAnsText}</b></div></div>` +
+            `<div>Đáp Án Của Bạn: <b>${escapeAttr(userAnsText)}</b></div>` +
+            `<div>Đáp Án Đúng: <b style="color:var(--green-accent);">${escapeAttr(corAnsText)}</b></div></div>` +
             `<div>Điểm: ${ptsEarned.toFixed(2)}/${ptsPerQ.toFixed(2)}</div></div></div></div>`
         );
     }

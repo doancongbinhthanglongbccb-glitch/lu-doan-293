@@ -131,6 +131,21 @@ export const QuizEngine = {
         return { wrong, correct, unanswered };
     },
 
+    /**
+     * Indices of questions without an answer.
+     * @param {object[]} questions
+     * @param {Record<number, object>} answers
+     * @param {Function} hasAnswerFn
+     * @returns {number[]}
+     */
+    getUnansweredIndices(questions, answers, hasAnswerFn) {
+        const indices = [];
+        questions.forEach((q, i) => {
+            if (!hasAnswerFn(answers[i])) indices.push(i);
+        });
+        return indices;
+    },
+
     QUIZ_MODES,
     REVIEW_SUB_MODES
 };

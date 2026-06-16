@@ -5,10 +5,12 @@
 1. Push repo lên GitHub
 2. Render → **New Blueprint** → chọn repo
 3. `render.yaml` tự cấu hình `rootDir: backend`
-4. `JWT_SECRET` được generate
+4. `JWT_SECRET` được generate; **`ADMIN_PASSWORD`** phải tự đặt trong Render Dashboard (Environment) trước lần deploy đầu — dùng để tạo admin `00000001`
 5. **Disk** `/var/data` — giữ SQLite (có phí disk nhỏ)
 
 Backend serve `frontend/` + `/api` cùng origin — không cần deploy frontend riêng.
+
+**Bảo mật:** HTML câu hỏi được sanitize khi lưu (BE) và khi hiển thị (FE). Helmet CSP bật mặc định (MathJax + Google Fonts từ CDN).
 
 ## Local production
 
@@ -43,5 +45,6 @@ npm run dev
 |------|--------|
 | `PORT` | HTTP port (Render set tự động) |
 | `JWT_SECRET` | Secret ký JWT |
+| `ADMIN_PASSWORD` | Mật khẩu admin ban đầu (`00000001`) — **bắt buộc** khi chạy migrate lần đầu |
 | `DB_PATH` | Đường dẫn SQLite |
 | `NODE_ENV` | `production` / `development` |

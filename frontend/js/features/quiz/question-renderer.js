@@ -1,5 +1,6 @@
 import { QUIZ_MODES, LONG_PRESS_MS } from '../../config/index.js';
 import { escapeAttr } from '../../utils/html.js';
+import { sanitizeRichHtml } from '../../utils/sanitize-html.js';
 import {
     getQuestionTypeLabel,
     isTextInputType,
@@ -47,7 +48,7 @@ export class QuestionRenderer {
             `<div class="q-badge-num">${index + 1}/${totalCount}</div>` +
             `<div class="q-badge-type">${typeText}</div>` +
             '</div>' +
-            `<div class="q-content">${q.contentHtml}${q.isMul && q.type !== 'Multipleresponse' ? '<i>(Nhiều đáp án)</i>' : ''}</div>` +
+            `<div class="q-content">${sanitizeRichHtml(q.contentHtml)}${q.isMul && q.type !== 'Multipleresponse' ? '<i>(Nhiều đáp án)</i>' : ''}</div>` +
             '<div style="clear:both;"></div></div><div class="options-list">';
 
         if (isTextInputType(q.type)) {
@@ -74,7 +75,7 @@ export class QuestionRenderer {
         let html = '';
 
         if (q.type === 'essayquestion') {
-            html += `<div><textarea class="opt-textarea" id="textAns${index}" placeholder="Nhập câu trả lời..." ${disabledStr} aria-label="Câu trả lời">${userVal}</textarea></div>`;
+            html += `<div><textarea class="opt-textarea" id="textAns${index}" placeholder="Nhập câu trả lời..." ${disabledStr} aria-label="Câu trả lời">${escapeAttr(userVal)}</textarea></div>`;
         } else {
             html += `<div><input type="text" class="opt-text" value="${escapeAttr(userVal)}" id="textAns${index}" placeholder="Nhập câu trả lời..." ${disabledStr} aria-label="Câu trả lời"></div>`;
         }
@@ -113,7 +114,7 @@ export class QuestionRenderer {
                 `<div class="${c}" data-idx="${idx}" role="button" tabindex="0" aria-pressed="${isSel}">` +
                 `<div class="opt-radio" style="${radioStyle}"><div class="opt-radio-inner" style="${radioInnerStyle}"></div></div>` +
                 `<div class="opt-letter">${ans.letter}.</div>` +
-                `<div class="q-content">${ans.html}</div></div>`;
+                `<div class="q-content">${sanitizeRichHtml(ans.html)}</div></div>`;
         });
         return html;
     }

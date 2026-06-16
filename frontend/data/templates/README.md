@@ -1,3 +1,10 @@
 # Excel import templates
 
-Đặt file `.xlsx` mẫu tại đây, rồi khai báo trong `frontend/js/services/excel/index.js` → `TEMPLATE_FILES`.
+File mẫu nằm tại `frontend/data/`:
+
+- `Chính trị.xlsx`
+- `Quân sự.xlsx`
+- `Hậu cần.xlsx`
+- `Kỹ thuật.xlsx`
+
+Khai báo trong `frontend/js/services/excel/index.js` → `TEMPLATE_FILES` (menu **Tải mẫu Excel** trên admin).

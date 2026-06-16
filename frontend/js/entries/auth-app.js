@@ -5,8 +5,12 @@ import { initApiLoadingBridge } from '../ui/api-loading-bridge.js';
 migrateLegacyStorageKeys();
 initApiLoadingBridge();
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     const page = document.body.dataset.authPage;
-    if (page === 'login') AuthPages.initLogin();
-    if (page === 'register') AuthPages.initRegister();
+    try {
+        if (page === 'login') await AuthPages.initLogin();
+        if (page === 'register') await AuthPages.initRegister();
+    } catch (err) {
+        console.error('[auth-app] init failed:', err);
+    }
 });

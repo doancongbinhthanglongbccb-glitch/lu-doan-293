@@ -1,5 +1,4 @@
 import { localStorageAdapter } from './local-storage-adapter.js';
-import { apiClient } from '../services/api/api-client.js';
 import { APP_CONFIG } from '../config/index.js';
 
 /**
@@ -28,17 +27,6 @@ export function normalizeUsers(data) {
         return { users: [] };
     }
     return data;
-}
-
-/**
- * Load users from API (admin); cache locally.
- * @returns {Promise<{ users: object[] }>}
- */
-export async function loadUsers() {
-    const { data } = await apiClient.get('/users', { silent: true });
-    const usersData = normalizeUsers({ users: data.users || data.data?.users || [] });
-    saveUsers(usersData);
-    return usersData;
 }
 
 /**

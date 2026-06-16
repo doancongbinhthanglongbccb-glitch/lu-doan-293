@@ -7,8 +7,11 @@ import {
 } from '../../config/index.js';
 import { eventBus } from '../../core/event-bus.js';
 import { apiClient } from '../api/api-client.js';
+import { pickUser, pickUsers } from '../api/api-response.js';
 import { TokenManager } from './token-manager.js';
+import { clearLocalSession, saveSessionUser } from './session-store.js';
 import * as userRepo from '../../storage/user-repository.js';
+import * as quizRepo from '../../storage/quiz-repository.js';
 
 /**
  * Authentication via REST API + JWT (production).
@@ -32,7 +35,7 @@ export class ApiAuthProvider extends AuthProvider {
     async initUsers() {
         if (this._usersCache) return this._usersCache;
         const { data } = await apiClient.get('/users');
-        this._usersCache = { users: data.users || data.data?.users || [] };
+        this._usersCache = { users: pickUsers(data) || [] };
         userRepo.saveUsers(this._usersCache);
         return this._usersCache;
     }
@@ -49,6 +52,45 @@ export class ApiAuthProvider extends AuthProvider {
     }
 
     /**
+     * Sync local session with server. Call before protected page init.
+     * @returns {Promise<object|null>}
+     */
+    async ensureSession() {
+        if (!TokenManager.getToken()) {
+            if (this.getCurrentUser()) clearLocalSession();
+            return null;
+        }
+        return this.fetchCurrentUser();
+    }
+
+    /**
+     * @param {string} [redirectTo]
+     * @returns {Promise<object|null>}
+     */
+    async requireAuthAsync(redirectTo = 'login.html') {
+        const user = await this.ensureSession();
+        if (!user || !this.isLoggedIn()) {
+            window.location.href = redirectTo;
+            return null;
+        }
+        return user;
+    }
+
+    /**
+     * @param {string} [redirectTo]
+     * @returns {Promise<object|null>}
+     */
+    async requireAdminAsync(redirectTo = 'index.html') {
+        const user = await this.requireAuthAsync();
+        if (!user) return null;
+        if (!this.isAdmin()) {
+            window.location.href = redirectTo;
+            return null;
+        }
+        return user;
+    }
+
+    /**
      * @param {string} militaryId
      * @param {string} password
      */
@@ -61,15 +103,8 @@ export class ApiAuthProvider extends AuthProvider {
             );
 
             TokenManager.setTokens(data);
-            const user = data.user;
-            const session = {
-                militaryId: user.militaryId,
-                fullName: user.fullName,
-                role: user.role,
-                status: user.status,
-                loginAt: new Date().toISOString()
-            };
-            userRepo.saveCurrentUser(session);
+            const user = pickUser(data);
+            const session = saveSessionUser(user);
             eventBus.emit(EVENTS.AUTH_LOGIN_SUCCESS, { user: session });
             return { ok: true, user: session };
         } catch (err) {
@@ -112,15 +147,31 @@ export class ApiAuthProvider extends AuthProvider {
 
     /** @inheritdoc */
     async logout() {
+        const user = this.getCurrentUser();
+        const refreshToken = TokenManager.getRefreshToken();
         try {
-            await apiClient.post('/auth/logout', null, { silent: true });
+            await quizRepo.flushWrongHistorySync(user);
+        } catch {
+            /* ignore sync errors on logout */
+        }
+        try {
+            await apiClient.post(
+                '/auth/logout',
+                refreshToken ? { refreshToken } : {},
+                { silent: true }
+            );
         } catch {
             /* ignore */
+        } finally {
+            clearLocalSession();
+            this._usersCache = null;
+            eventBus.emit(EVENTS.AUTH_LOGOUT);
         }
-        TokenManager.removeToken();
-        userRepo.clearCurrentUser();
-        this._usersCache = null;
-        eventBus.emit(EVENTS.AUTH_LOGOUT);
+    }
+
+    /** @inheritdoc */
+    isLoggedIn() {
+        return TokenManager.hasValidToken() && !!this.getCurrentUser();
     }
 
     /** @inheritdoc */
@@ -135,29 +186,33 @@ export class ApiAuthProvider extends AuthProvider {
     async fetchCurrentUser() {
         if (!TokenManager.getToken()) return null;
         try {
-            const { data } = await apiClient.get('/auth/me');
-            const user = data.user || data.data?.user || data;
-            const session = {
-                militaryId: user.militaryId,
-                fullName: user.fullName,
-                role: user.role,
-                status: user.status,
-                loginAt: new Date().toISOString()
-            };
-            userRepo.saveCurrentUser(session);
-            return session;
+            const { data } = await apiClient.get('/auth/me', { silent: true });
+            const user = pickUser(data);
+            if (!user) {
+                clearLocalSession();
+                return null;
+            }
+            return saveSessionUser(user);
         } catch {
-            TokenManager.removeToken();
-            userRepo.clearCurrentUser();
+            clearLocalSession();
             return null;
         }
+    }
+
+    /**
+     * Reload users list from API (admin).
+     * @returns {Promise<object>}
+     */
+    async reloadUsers() {
+        this._usersCache = null;
+        return this.initUsers();
     }
 
     /** @param {string} militaryId */
     async approveUser(militaryId) {
         try {
             await apiClient.patch(`/users/${militaryId}/approve`);
-            this._usersCache = null;
+            await this.reloadUsers();
             return { ok: true };
         } catch (err) {
             return { ok: false, message: err.message };
@@ -168,7 +223,7 @@ export class ApiAuthProvider extends AuthProvider {
     async rejectUser(militaryId) {
         try {
             await apiClient.patch(`/users/${militaryId}/reject`);
-            this._usersCache = null;
+            await this.reloadUsers();
             return { ok: true };
         } catch (err) {
             return { ok: false, message: err.message };
@@ -182,7 +237,7 @@ export class ApiAuthProvider extends AuthProvider {
     async updateUser(militaryId, data) {
         try {
             await apiClient.patch(`/users/${militaryId}`, data);
-            this._usersCache = null;
+            await this.reloadUsers();
             return { ok: true };
         } catch (err) {
             return { ok: false, message: err.message };
@@ -209,7 +264,7 @@ export class ApiAuthProvider extends AuthProvider {
     async deleteUser(militaryId) {
         try {
             await apiClient.delete(`/users/${militaryId}`);
-            this._usersCache = null;
+            await this.reloadUsers();
             return { ok: true };
         } catch (err) {
             return { ok: false, message: err.message };

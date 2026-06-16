@@ -33,8 +33,7 @@ export function logout(req, res, next) {
 export function me(req, res, next) {
     try {
         const user = authService.getMe(req.user);
-        // Flat { user } for frontend: data.user || data
-        res.json({ success: true, message: 'OK', user });
+        sendSuccess(res, { user });
     } catch (err) {
         next(err);
     }

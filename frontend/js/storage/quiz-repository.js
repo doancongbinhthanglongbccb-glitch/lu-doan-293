@@ -1,6 +1,7 @@
 import { APP_CONFIG } from '../config/index.js';
 import { clone } from '../utils/array.js';
 import { assignQuestionHash, legacyHashStr } from '../utils/hash.js';
+import { sanitizeQuizDataHtml } from '../utils/sanitize-html.js';
 import { localStorageAdapter, getHistoryKey } from './local-storage-adapter.js';
 import { eventBus } from '../core/event-bus.js';
 import { EVENTS } from '../config/index.js';
@@ -38,7 +39,7 @@ export function normalizeData(data) {
         });
     });
 
-    return data;
+    return sanitizeQuizDataHtml(data);
 }
 
 /**
@@ -63,14 +64,23 @@ export function cacheQuizData(data) {
 }
 
 /**
- * Load quiz from API; update local cache.
+ * Load quiz from API; fall back to local cache on failure.
  * @returns {Promise<QuizData>}
  */
 export async function loadQuizData() {
-    const { data } = await apiClient.get('/quiz', { silent: true });
-    const quiz = normalizeData(data.data || data);
-    cacheQuizData(quiz);
-    return quiz;
+    try {
+        const { data } = await apiClient.get('/quiz', { silent: true });
+        const normalized = normalizeData(data.data || data);
+        cacheQuizData(normalized);
+        return normalized;
+    } catch (err) {
+        const cached = getCachedQuizData();
+        if (cached) {
+            console.warn('[quiz-repository] API load failed, using cache:', err.message);
+            return cached;
+        }
+        throw err;
+    }
 }
 
 /**
@@ -267,4 +277,19 @@ export function syncWrongHistoryDebounced(user, wrongHistory, correctHistory, de
             console.warn('[quiz-repository] wrong-history sync failed:', err.message);
         });
     }, delayMs);
+}
+
+/**
+ * Flush pending wrong-history sync immediately (e.g. before logout).
+ * @param {object|null} user
+ */
+export async function flushWrongHistorySync(user) {
+    if (_wrongHistorySyncTimer) {
+        clearTimeout(_wrongHistorySyncTimer);
+        _wrongHistorySyncTimer = null;
+    }
+    if (!user) return;
+    const wrongHistory = getWrongHistory(user);
+    const correctHistory = getCorrectHistory(user);
+    await syncWrongHistoryToApi(user, wrongHistory, correctHistory);
 }

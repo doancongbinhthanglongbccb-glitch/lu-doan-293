@@ -29,10 +29,12 @@ cbquiz/
 npm install
 cd backend && npm install && cd ..
 
-# Cấu hình backend
-cd backend && cp .env.example .env && cd ..
+# Cấu hình backend — đặt ADMIN_PASSWORD trong backend/.env trước khi migrate
+cd backend && cp .env.example .env
+# Sửa ADMIN_PASSWORD trong .env, rồi:
+cd ..
 
-# Migrate DB + seed
+# Migrate DB + seed admin (00000001)
 npm run migrate
 
 # Chạy fullstack (backend serve frontend + API)
@@ -44,7 +46,7 @@ npm run dev
 | http://localhost:3000 | App + API (khuyến nghị) |
 | http://localhost:8080 | Chỉ static UI (debug, không gọi API) |
 
-**Admin:** `00000001` / `admin123`
+**Admin đầu tiên:** số quân nhân `00000001` — mật khẩu = giá trị `ADMIN_PASSWORD` bạn đặt trong `backend/.env` khi migrate (không hardcode trong code).
 
 ---
 

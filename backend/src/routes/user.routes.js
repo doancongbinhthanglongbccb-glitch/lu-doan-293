@@ -21,7 +21,11 @@ router.patch(
     validate([
         militaryIdParam,
         body('fullName').optional().trim().notEmpty().withMessage('Họ tên không được trống.'),
-        body('role').optional().isIn(['admin', 'user']).withMessage('Vai trò không hợp lệ.')
+        body('role').optional().isIn(['admin', 'user']).withMessage('Vai trò không hợp lệ.'),
+        body('status')
+            .optional()
+            .isIn(['pending', 'approved', 'rejected'])
+            .withMessage('Trạng thái không hợp lệ.')
     ]),
     userController.updateUser
 );

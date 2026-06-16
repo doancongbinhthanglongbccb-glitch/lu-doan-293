@@ -19,6 +19,7 @@ import { auth } from '../../services/auth/index.js';
 import { ModalManager } from '../../ui/modal-manager.js';
 import { Toast } from '../../ui/toast.js';
 import { showLoading, hideLoading } from '../../ui/loading.js';
+import { handleError } from '../../utils/errors.js';
 
 /**
  * Admin panel controller — CRUD topics/questions, Excel, user management.
@@ -35,15 +36,15 @@ export class AdminController {
 
     /** Initialize admin panel */
     async init() {
-        if (!auth.requireAdmin()) return;
+        const currentUser = await auth.requireAdminAsync();
+        if (!currentUser) return;
         showLoading('Đang tải...');
 
         try {
             await auth.initUsers();
             await this._loadData();
 
-            const currentUser = auth.getCurrentUser();
-            $('adminUserName').textContent = currentUser ? currentUser.fullName : 'Admin';
+            $('adminUserName').textContent = currentUser.fullName || 'Admin';
 
             this.renderStats();
             this.renderTopicList();
@@ -51,6 +52,8 @@ export class AdminController {
             this.bindEvents();
             this.bindUserEvents();
             this.renderUserTable();
+        } catch (err) {
+            handleError(err, { context: 'AdminController.init', fallbackKey: 'QUIZ_LOAD' });
         } finally {
             hideLoading();
         }
@@ -76,7 +79,7 @@ export class AdminController {
             const li = document.createElement('li');
             li.className = 'admin-topic-item' + (idx === this.selectedTopicIdx ? ' active' : '');
             li.innerHTML =
-                `<span class="topic-name">${topic.title}</span>` +
+                `<span class="topic-name">${escapeAttr(topic.title)}</span>` +
                 `<span class="topic-count">${topic.questions.length}</span>`;
             li.onclick = () => {
                 this.selectedTopicIdx = idx;
@@ -103,7 +106,7 @@ export class AdminController {
             const correctLetters = q.answers.filter(a => a.isCorrect).map(a => a.letter).join(', ');
             tr.innerHTML =
                 `<td>${q.id || '—'}</td>` +
-                `<td class="q-preview">${preview}${preview.length >= 80 ? '...' : ''}</td>` +
+                `<td class="q-preview">${escapeAttr(preview)}${preview.length >= 80 ? '...' : ''}</td>` +
                 `<td>${getQuestionTypeLabel(q.type)}</td>` +
                 `<td>${correctLetters}</td>` +
                 '<td class="actions-cell">' +
@@ -116,10 +119,15 @@ export class AdminController {
     }
 
     async saveData() {
-        this.quizData = await quizRepo.saveQuizData(this.quizData);
-        this.renderStats();
-        this.renderTopicList();
-        this.renderQuestionList();
+        try {
+            this.quizData = await quizRepo.saveQuizData(this.quizData);
+            this.renderStats();
+            this.renderTopicList();
+            this.renderQuestionList();
+        } catch (err) {
+            Toast.error(err.message || 'Không lưu được dữ liệu.');
+            throw err;
+        }
     }
 
     openTopicModal(editIdx) {
@@ -129,7 +137,7 @@ export class AdminController {
         ModalManager.open('topicModal');
     }
 
-    saveTopic() {
+    async saveTopic() {
         const title = $('topicNameInput').value.trim();
         if (!title) return Toast.warning('Vui lòng nhập tên chủ đề.');
         const editIdx = parseInt($('topicModal').dataset.editIdx, 10);
@@ -140,7 +148,7 @@ export class AdminController {
             this.selectedTopicIdx = this.quizData.topics.length - 1;
         }
         ModalManager.close('topicModal');
-        this.saveData();
+        await this.saveData();
     }
 
     deleteTopic() {
@@ -149,10 +157,10 @@ export class AdminController {
         ModalManager.confirm({
             title: 'Xóa chủ đề',
             message: `Xóa chủ đề "${topic.title}" và ${topic.questions.length} câu hỏi?`,
-            onConfirm: () => {
+            onConfirm: async () => {
                 this.quizData.topics.splice(this.selectedTopicIdx, 1);
                 this.selectedTopicIdx = Math.max(0, this.selectedTopicIdx - 1);
-                this.saveData();
+                await this.saveData();
             }
         });
     }
@@ -164,9 +172,9 @@ export class AdminController {
         ModalManager.confirm({
             title: 'Xóa câu hỏi',
             message: `Xóa hết ${topic.questions.length} câu hỏi trong chủ đề "${topic.title}"?\nChủ đề vẫn được giữ lại.`,
-            onConfirm: () => {
+            onConfirm: async () => {
                 topic.questions = [];
-                this.saveData();
+                await this.saveData();
             }
         });
     }
@@ -301,7 +309,7 @@ export class AdminController {
         return q;
     }
 
-    saveQuestion() {
+    async saveQuestion() {
         const q = this.collectQuestionFromForm();
         if (!q) return;
         const topic = this.quizData.topics[this.selectedTopicIdx];
@@ -311,16 +319,16 @@ export class AdminController {
             topic.questions.push(q);
         }
         ModalManager.close('questionModal');
-        this.saveData();
+        await this.saveData();
     }
 
     deleteQuestion(idx) {
         ModalManager.confirm({
             title: 'Xóa câu hỏi',
             message: 'Xóa câu hỏi này?',
-            onConfirm: () => {
+            onConfirm: async () => {
                 this.quizData.topics[this.selectedTopicIdx].questions.splice(idx, 1);
-                this.saveData();
+                await this.saveData();
             }
         });
     }
@@ -351,7 +359,7 @@ export class AdminController {
                 ModalManager.confirm({
                     title: 'Import Excel',
                     message: msg,
-                    onConfirm: () => {
+                    onConfirm: async () => {
                         let baseId = nextQuestionId(this.quizData);
                         questions.forEach(q => {
                             q.id = baseId++;
@@ -365,7 +373,7 @@ export class AdminController {
                             this.selectedTopicIdx = this.quizData.topics.length - 1;
                         }
 
-                        this.saveData();
+                        await this.saveData();
                         Toast.success(`Import thành công! ${questions.length} câu → chủ đề "${topicTitle}"`);
                     }
                 });
@@ -412,8 +420,8 @@ export class AdminController {
             ModalManager.confirm({
                 title: 'Đăng xuất',
                 message: 'Bạn có muốn đăng xuất?',
-                onConfirm: () => {
-                    auth.logout();
+                onConfirm: async () => {
+                    await auth.logout();
                     window.location.href = 'login.html';
                 }
             });
@@ -479,10 +487,10 @@ export class AdminController {
         users.forEach(u => {
             const tr = document.createElement('tr');
             const isAdmin = u.role === 'admin';
-            const isPending = u.status === 'pending';
+            const needsReview = u.status === 'pending' || u.status === 'rejected';
             let actions = '';
 
-            if (isPending && !isAdmin) {
+            if (needsReview && !isAdmin) {
                 actions += `<button class="btn-sm btn-green user-approve" data-id="${u.militaryId}">Duyệt</button> `;
                 actions += `<button class="btn-sm btn-delete user-reject" data-id="${u.militaryId}">Từ chối</button> `;
             }

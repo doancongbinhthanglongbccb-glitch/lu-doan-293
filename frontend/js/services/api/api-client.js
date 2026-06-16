@@ -1,6 +1,7 @@
 import { APP_CONFIG, EVENTS } from '../../config/index.js';
 import { eventBus } from '../../core/event-bus.js';
 import { TokenManager } from '../auth/token-manager.js';
+import { clearLocalSession, saveSessionUser } from '../auth/session-store.js';
 import {
     mapHttpStatusToMessage,
     isNetworkError,
@@ -17,6 +18,17 @@ import {
 
 /** @type {Promise<void>|null} */
 let refreshPromise = null;
+
+const SESSION_INVALID_403 =
+    /tài khoản chưa được phê duyệt|tài khoản đã bị từ chối|phiên đăng nhập không hợp lệ/i;
+
+/**
+ * @param {string} [message]
+ * @returns {boolean}
+ */
+function shouldInvalidateSessionOn403(message) {
+    return SESSION_INVALID_403.test(message || '');
+}
 
 addRequestInterceptor(async config => {
     if (!config.skipAuth) {
@@ -40,7 +52,8 @@ addResponseInterceptor(async (response, config) => {
                 _retriedAfterRefresh: true
             });
         }
-        TokenManager.removeToken();
+        clearLocalSession();
+        eventBus.emit(EVENTS.AUTH_LOGOUT);
     }
     return response;
 });
@@ -78,6 +91,8 @@ async function _tryRefreshToken() {
             if (!res.ok) return;
             const data = await res.json();
             TokenManager.setTokens(data);
+            const user = data.user || data.data?.user;
+            if (user) saveSessionUser(user);
         } catch {
             /* refresh failed */
         } finally {
@@ -174,6 +189,16 @@ export const apiClient = {
                         response.status,
                         data?.message || data?.error
                     );
+
+                    if (
+                        !config.skipAuth &&
+                        response.status === 403 &&
+                        shouldInvalidateSessionOn403(message)
+                    ) {
+                        clearLocalSession();
+                        eventBus.emit(EVENTS.AUTH_LOGOUT);
+                    }
+
                     const err = createApiError(message, { status: response.status, data });
                     await runErrorInterceptors(err, config);
                     throw err;

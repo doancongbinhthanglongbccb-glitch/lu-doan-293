@@ -1,7 +1,6 @@
 import { APP_CONFIG, QUESTION_TYPES, QUESTION_TYPE_LABELS } from '../config/index.js';
 import { shuffle } from '../utils/array.js';
 import { htmlToText } from '../utils/html.js';
-import { assignQuestionHash } from '../utils/hash.js';
 
 /**
  * @typedef {import('../core/store.js').AnswerState} AnswerState
@@ -55,7 +54,8 @@ export function assignAnswerLetters(answers) {
 }
 
 /**
- * Prepare question for quiz session — shuffle answers, assign letters, hash.
+ * Prepare question for quiz session — shuffle answers and assign letters.
+ * Hash is assigned at normalize/load time and must stay stable for wrong-history.
  * @param {object} q
  * @returns {object}
  */
@@ -65,7 +65,6 @@ export function prepareQuestion(q) {
     }
     assignAnswerLetters(q.answers);
     q.isMul = q.answers.filter(a => a.isCorrect).length > 1;
-    assignQuestionHash(q);
     return q;
 }
 
@@ -100,6 +99,18 @@ export function markQuestionsMul(questions) {
 }
 
 /**
+ * Normalize text for essay/fill grading — ignore case and extra whitespace.
+ * @param {string} text
+ * @returns {string}
+ */
+export function normalizeGradingText(text) {
+    return String(text || '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+}
+
+/**
  * Grade a single question answer.
  * @param {object} q - Question object
  * @param {AnswerState|undefined|null} answerState
@@ -114,8 +125,8 @@ export function gradeAnswer(q, answerState) {
         }
         const corAns = q.answers.find(a => a.isCorrect);
         if (!corAns) return { answered: true, isCorrect: false };
-        const corText = htmlToText(corAns.html).toLowerCase();
-        const userText = answerState.textValue.trim().toLowerCase();
+        const corText = normalizeGradingText(htmlToText(corAns.html));
+        const userText = normalizeGradingText(answerState.textValue);
         return { answered: true, isCorrect: corText === userText };
     }
 

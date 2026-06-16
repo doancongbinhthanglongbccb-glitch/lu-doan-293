@@ -3,8 +3,13 @@ import { assignQuestionHash } from '../../utils/hash.js';
 import { assignAnswerLetters } from '../../core/grading.js';
 import { textToHtml, htmlToEditText } from './formatters.js';
 
-/** Excel template downloads — thêm file .xlsx vào frontend/data/templates/ rồi bổ sung tại đây */
-export const TEMPLATE_FILES = [];
+/** Excel template downloads — paths relative to frontend root (served as static files) */
+export const TEMPLATE_FILES = [
+    { label: 'Chính trị', file: 'data/Chính trị.xlsx' },
+    { label: 'Quân sự', file: 'data/Quân sự.xlsx' },
+    { label: 'Hậu cần', file: 'data/Hậu cần.xlsx' },
+    { label: 'Kỹ thuật', file: 'data/Kỹ thuật.xlsx' }
+];
 
 /**
  * Lấy text từ row theo nhiều tên cột.

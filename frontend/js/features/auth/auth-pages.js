@@ -1,4 +1,6 @@
 import { auth } from '../../services/auth/index.js';
+import { clearLocalSession } from '../../services/auth/session-store.js';
+import { TokenManager } from '../../services/auth/token-manager.js';
 
 /**
  * Login and register page logic.
@@ -8,10 +10,14 @@ export const AuthPages = {
      * Initialize login page.
      */
     async initLogin() {
-        await auth.initUsers();
-        if (auth.isLoggedIn()) {
+        const user = await auth.ensureSession();
+        if (user && auth.isLoggedIn()) {
             window.location.href = auth.isAdmin() ? 'admin.html' : 'index.html';
             return;
+        }
+
+        if (!TokenManager.getToken() && auth.getCurrentUser()) {
+            clearLocalSession();
         }
 
         const form = document.getElementById('loginForm');
@@ -37,7 +43,17 @@ export const AuthPages = {
     /**
      * Initialize register page.
      */
-    initRegister() {
+    async initRegister() {
+        const user = await auth.ensureSession();
+        if (user && auth.isLoggedIn()) {
+            window.location.href = auth.isAdmin() ? 'admin.html' : 'index.html';
+            return;
+        }
+
+        if (!TokenManager.getToken() && auth.getCurrentUser()) {
+            clearLocalSession();
+        }
+
         const form = document.getElementById('registerForm');
         if (!form) return;
 

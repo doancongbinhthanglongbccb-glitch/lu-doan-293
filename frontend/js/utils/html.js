@@ -19,15 +19,17 @@ export function escapeAttr(str) {
 /** Alias for escapeAttr */
 export const escapeHtml = escapeAttr;
 
+import { sanitizeRichHtml } from './sanitize-html.js';
+
 /**
  * Extract plain text from HTML, preserving line breaks from br tags.
  * @param {string} html
  * @returns {string}
  */
 export function htmlToText(html) {
-    const div = document.createElement('div');
-    div.innerHTML = (html || '').replace(/<br\s*\/?>/gi, '\n');
-    return div.textContent.trim();
+    const withBreaks = sanitizeRichHtml(html || '').replace(/<br\s*\/?>/gi, '\n');
+    const doc = new DOMParser().parseFromString(`<div>${withBreaks}</div>`, 'text/html');
+    return (doc.body.textContent || '').trim();
 }
 
 /**

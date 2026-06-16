@@ -1,6 +1,7 @@
 import { getDb } from '../../database/connection.js';
 import { DEFAULT_QUIZ_TITLE } from '../config/constants.js';
 import { runTransaction } from '../utils/transaction.js';
+import { sanitizeQuizDataHtml } from '../utils/sanitize-html.js';
 
 /**
  * Load full quiz payload matching frontend shape.
@@ -41,6 +42,7 @@ export function getQuizData() {
  */
 export function replaceQuizData(data) {
     const db = getDb();
+    sanitizeQuizDataHtml(data);
     const title = data.title || DEFAULT_QUIZ_TITLE;
     const topics = Array.isArray(data.topics) ? data.topics : [];
 

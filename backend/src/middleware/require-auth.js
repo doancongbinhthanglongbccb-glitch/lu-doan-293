@@ -1,5 +1,5 @@
 import { verifyToken } from '../utils/jwt.js';
-import { TOKEN_TYPES } from '../config/constants.js';
+import { TOKEN_TYPES, USER_STATUS } from '../config/constants.js';
 import { sendError } from '../utils/response.js';
 import * as userModel from '../models/user.model.js';
 
@@ -26,7 +26,7 @@ export function requireAuth(req, res, next) {
             return sendError(res, 'Người dùng không tồn tại.', 401);
         }
 
-        if (user.status !== 'approved') {
+        if (user.status !== USER_STATUS.APPROVED) {
             return sendError(res, 'Tài khoản chưa được phê duyệt hoặc đã bị từ chối.', 403);
         }
 

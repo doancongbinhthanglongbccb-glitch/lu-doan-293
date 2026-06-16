@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 import bcrypt from 'bcryptjs';
 import { getDb, closeDb } from './connection.js';
 import { env } from '../src/config/env.js';
-import { DEFAULT_ADMIN } from '../../shared/constants/user.js';
+import { DEFAULT_ADMIN, MIN_PASSWORD_LENGTH } from '../../shared/constants/user.js';
 import { replaceQuizData, getQuizData } from '../src/models/quiz.model.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -28,7 +28,19 @@ function seedAdmin() {
         return;
     }
 
-    const hash = bcrypt.hashSync(DEFAULT_ADMIN.password, env.bcryptRounds);
+    const password = env.adminPassword;
+    if (!password) {
+        throw new Error(
+            '[migrate] ADMIN_PASSWORD is required in backend/.env to seed the initial admin account.'
+        );
+    }
+    if (password.length < MIN_PASSWORD_LENGTH) {
+        throw new Error(
+            `[migrate] ADMIN_PASSWORD must be at least ${MIN_PASSWORD_LENGTH} characters.`
+        );
+    }
+
+    const hash = bcrypt.hashSync(password, env.bcryptRounds);
     const now = new Date().toISOString();
 
     db.prepare(

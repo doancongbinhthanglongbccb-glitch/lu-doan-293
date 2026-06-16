@@ -5,8 +5,7 @@ import { sendSuccess } from '../utils/response.js';
 export function listUsers(req, res, next) {
     try {
         const users = userService.listUsers();
-        // Frontend reads data.users
-        res.json({ success: true, message: 'OK', users });
+        sendSuccess(res, { users });
     } catch (err) {
         next(err);
     }

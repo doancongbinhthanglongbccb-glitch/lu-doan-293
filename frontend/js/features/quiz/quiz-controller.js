@@ -1,5 +1,6 @@
 import { APP_CONFIG, QUIZ_MODES, REVIEW_SUB_MODES, FILTER_MODES } from '../../config/index.js';
 import { $, setVisible } from '../../utils/dom.js';
+import { escapeAttr } from '../../utils/html.js';
 import { formatDateTime } from '../../utils/date.js';
 import { store } from '../../core/store.js';
 import { QuizEngine } from '../../core/quiz-engine.js';
@@ -51,14 +52,13 @@ export class QuizController {
 
     /** Initialize quiz application */
     async init() {
-        if (!auth.requireAuth()) return;
+        const currentUser = await auth.requireAuthAsync();
+        if (!currentUser) return;
 
         initToast();
         showLoading('Đang tải dữ liệu...');
 
         try {
-            await auth.initUsers();
-            const currentUser = auth.getCurrentUser();
             this.wrongHistoryService = await createWrongHistoryService(currentUser);
             const historyState = this.wrongHistoryService.getState();
 
@@ -87,14 +87,9 @@ export class QuizController {
     /** @returns {Promise<object>} */
     async _loadQuizData() {
         const originalData = await quizRepo.loadQuizData();
-        if (repairEssayQuestions(originalData)) {
-            await quizRepo.saveQuizData(originalData);
-        }
+        repairEssayQuestions(originalData);
         quizRepo.migrateHistoryHashes(originalData);
-        if (!quizRepo.getCachedQuizData()) {
-            await quizRepo.saveQuizData(originalData);
-        }
-        return originalData;
+        return quizRepo.cacheQuizData(originalData);
     }
 
     _cacheDomRefs() {
@@ -353,6 +348,29 @@ export class QuizController {
         this._showResultScreen();
     }
 
+    /** Manual submit — require every question answered (timer auto-submit may leave blanks). */
+    _promptSubmitExam() {
+        const state = store.getState();
+        const { questions } = state.quizData;
+        const unanswered = QuizEngine.getUnansweredIndices(questions, state.answers, hasAnswer);
+
+        if (unanswered.length > 0) {
+            const nums = unanswered.map(i => i + 1).join(', ');
+            Toast.warning(
+                `Còn ${unanswered.length} câu chưa trả lời (câu ${nums}). Vui lòng làm hết trước khi nộp bài.`
+            );
+            store.setState({ currentIndex: unanswered[0] });
+            this.renderQuestion();
+            return;
+        }
+
+        const msgEl = $('submitConfirmMessage');
+        if (msgEl) {
+            msgEl.textContent = `Bạn đã trả lời đủ ${questions.length} câu. Xác nhận nộp bài?`;
+        }
+        ModalManager.open('modalConfirmSubmit');
+    }
+
     _showResultScreen() {
         const state = store.getState();
         const timerState = quizTimer.getState();
@@ -397,7 +415,7 @@ export class QuizController {
             const card = document.createElement('div');
             card.className = 'topic-review-card';
             card.innerHTML =
-                `<div class="topic-card-title">${topic.title}</div>` +
+                `<div class="topic-card-title">${escapeAttr(topic.title)}</div>` +
                 `<div class="topic-card-meta">${topic.questions.length} câu hỏi</div>` +
                 `<div class="topic-card-actions"><button class="btn-card-action btn-card-start" data-idx="${idx}">Ôn tập</button></div>`;
             card.querySelector('button').addEventListener('click', () => this._startTopicReview(idx));
@@ -614,7 +632,7 @@ export class QuizController {
             }
         };
 
-        this.btnSubmitExam.onclick = () => ModalManager.open('modalConfirmSubmit');
+        this.btnSubmitExam.onclick = () => this._promptSubmitExam();
         ModalManager.bindConfirm('modalConfirmSubmit', 'btnConfirmSubmit', 'btnCancelSubmit', () =>
             this.submitExam()
         );
@@ -641,8 +659,8 @@ export class QuizController {
             ModalManager.confirm({
                 title: 'Đăng xuất',
                 message: 'Bạn có muốn đăng xuất?',
-                onConfirm: () => {
-                    auth.logout();
+                onConfirm: async () => {
+                    await auth.logout();
                     window.location.href = 'login.html';
                 }
             });

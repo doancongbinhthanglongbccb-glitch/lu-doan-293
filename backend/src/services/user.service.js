@@ -1,8 +1,25 @@
 import * as userModel from '../models/user.model.js';
-import { USER_STATUS } from '../config/constants.js';
+import { USER_STATUS, USER_ROLES } from '../config/constants.js';
 
 export function listUsers() {
     return userModel.findAll().map(userModel.toPublicUser);
+}
+
+/**
+ * @returns {number}
+ */
+function countAdmins() {
+    return userModel.findAll().filter(u => u.role === USER_ROLES.ADMIN).length;
+}
+
+/**
+ * @param {number} userId
+ * @param {string} status
+ */
+function revokeIfNotApproved(userId, status) {
+    if (status !== USER_STATUS.APPROVED) {
+        userModel.revokeAllRefreshTokens(userId);
+    }
 }
 
 /**
@@ -17,9 +34,19 @@ export function updateUser(militaryId, data) {
         throw err;
     }
 
+    if (data.role === USER_ROLES.USER && user.role === USER_ROLES.ADMIN && countAdmins() <= 1) {
+        const err = new Error('Không thể hạ quyền admin cuối cùng.');
+        err.status = 400;
+        throw err;
+    }
+
     const fields = {};
     if (data.fullName !== undefined) fields.fullName = data.fullName;
     if (data.role !== undefined) fields.role = data.role;
+    if (data.status !== undefined) {
+        fields.status = data.status;
+        revokeIfNotApproved(user.id, data.status);
+    }
 
     const updated = userModel.updateByMilitaryId(militaryId, fields);
     return userModel.toPublicUser(updated);
@@ -49,7 +76,7 @@ export function rejectUser(militaryId) {
         err.status = 404;
         throw err;
     }
-    userModel.revokeAllRefreshTokens(user.id);
+    revokeIfNotApproved(user.id, USER_STATUS.REJECTED);
     const updated = userModel.updateByMilitaryId(militaryId, { status: USER_STATUS.REJECTED });
     return userModel.toPublicUser(updated);
 }
@@ -69,6 +96,12 @@ export function deleteUser(militaryId, actorMilitaryId) {
     if (!user) {
         const err = new Error('Không tìm thấy người dùng.');
         err.status = 404;
+        throw err;
+    }
+
+    if (user.role === USER_ROLES.ADMIN && countAdmins() <= 1) {
+        const err = new Error('Không thể xóa admin cuối cùng.');
+        err.status = 400;
         throw err;
     }
 

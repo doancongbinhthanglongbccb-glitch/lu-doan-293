@@ -20,7 +20,23 @@ app.set('trust proxy', 1);
 
 getDb();
 
-app.use(helmet({ contentSecurityPolicy: false }));
+app.use(
+    helmet({
+        contentSecurityPolicy: {
+            directives: {
+                defaultSrc: ["'self'"],
+                scriptSrc: ["'self'", 'https://cdn.jsdelivr.net', "'unsafe-eval'"],
+                styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+                fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
+                imgSrc: ["'self'", 'data:'],
+                connectSrc: ["'self'"],
+                frameSrc: ["'none'"],
+                objectSrc: ["'none'"],
+                baseUri: ["'self'"]
+            }
+        }
+    })
+);
 app.use(
     cors({
         origin: env.isDev ? [env.corsOrigin, `http://localhost:${env.port}`] : true,

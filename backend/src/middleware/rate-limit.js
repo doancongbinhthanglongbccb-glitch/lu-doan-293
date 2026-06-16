@@ -1,9 +1,10 @@
 import rateLimit from 'express-rate-limit';
+import { env } from '../config/env.js';
 
-/** Rate limit for login/register — 5 attempts per 15 minutes per IP */
+/** Rate limit for login/register — strict in production, relaxed when testing locally */
 export const authRateLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 5,
+    max: env.isDev ? 200 : 5,
     standardHeaders: true,
     legacyHeaders: false,
     message: {
