@@ -2,11 +2,33 @@
 
 ## Render (khuyến nghị)
 
+### Checklist trước deploy
+
+- [ ] Code đã push lên GitHub (`git push origin main`)
+- [ ] Render Dashboard → **Environment** → đặt `ADMIN_PASSWORD` (mật khẩu mạnh, ≥ 6 ký tự)
+- [ ] `JWT_SECRET` — Render tự generate qua Blueprint (không cần nhập tay)
+- [ ] Disk `/var/data` đã bật (trong `render.yaml`)
+
+### Các bước
+
 1. Push repo lên GitHub
-2. Render → **New Blueprint** → chọn repo
-3. `render.yaml` tự cấu hình `rootDir: backend`
-4. `JWT_SECRET` được generate; **`ADMIN_PASSWORD`** phải tự đặt trong Render Dashboard (Environment) trước lần deploy đầu — dùng để tạo admin `00000001`
-5. **Disk** `/var/data` — giữ SQLite (có phí disk nhỏ)
+2. Render → **New Blueprint** → chọn repo `TSQCB`
+3. `render.yaml` tự cấu hình `rootDir: backend`, `buildCommand: npm install && npm run migrate`
+4. **Trước khi deploy lần đầu:** vào service → **Environment** → thêm `ADMIN_PASSWORD`
+5. Deploy xong → kiểm tra `https://<tên-app>.onrender.com/api/health`
+6. Login admin: số QN `00000001`, mật khẩu = `ADMIN_PASSWORD` đã đặt
+
+> **Lưu ý:** `ADMIN_PASSWORD` chỉ dùng khi **seed admin lần đầu** (DB trống). Deploy sau không cần đổi trừ khi reset disk.
+
+### Sau deploy
+
+| Kiểm tra | URL |
+|----------|-----|
+| Health | `/api/health` |
+| App | `/login.html` |
+| Admin | `/admin.html` |
+
+Backup định kỳ file SQLite tại `/var/data/cbquiz.db` (Render Shell hoặc snapshot disk).
 
 Backend serve `frontend/` + `/api` cùng origin — không cần deploy frontend riêng.
 
