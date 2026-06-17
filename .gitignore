@@ -8,4 +8,6 @@ Thumbs.db
 !.env.example
 backend/database/*.db
 backend/database/*.db-*
+data/
+docker.env
 server/database/*.db

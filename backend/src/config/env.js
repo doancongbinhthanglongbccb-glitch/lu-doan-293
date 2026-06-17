@@ -25,6 +25,8 @@ if (!isDev && jwtSecret === DEV_JWT_FALLBACK) {
     throw new Error('JWT_SECRET must be set to a strong random value in production.');
 }
 
+const rawDbPath = process.env.DB_PATH || './database/cbquiz.db';
+
 export const env = {
     port: parseInt(process.env.PORT || '3000', 10),
     nodeEnv,
@@ -32,7 +34,7 @@ export const env = {
     jwtAccessExpires: process.env.JWT_ACCESS_EXPIRES || '1h',
     jwtRefreshExpires: process.env.JWT_REFRESH_EXPIRES || '7d',
     corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:8080',
-    dbPath: path.resolve(backendRoot, process.env.DB_PATH || './database/cbquiz.db'),
+    dbPath: path.isAbsolute(rawDbPath) ? rawDbPath : path.resolve(backendRoot, rawDbPath),
     bcryptRounds: parseInt(process.env.BCRYPT_ROUNDS || '10', 10),
     adminPassword: process.env.ADMIN_PASSWORD || null,
     isDev

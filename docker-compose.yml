@@ -1,0 +1,12 @@
+# Local Docker — DB lưu tại ./data trên máy (giữ khi restart / rebuild image)
+# Mất data chỉ khi: xóa thư mục data/ thủ công
+# Setup: copy docker.env.example → docker.env và sửa ADMIN_PASSWORD
+services:
+  cbquiz:
+    build: .
+    ports:
+      - "3000:3000"
+    env_file:
+      - docker.env
+    volumes:
+      - ./data:/app/data

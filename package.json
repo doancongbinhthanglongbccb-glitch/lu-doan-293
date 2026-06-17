@@ -4,6 +4,9 @@
   "description": "Hệ thống ôn tập trắc nghiệm — Fullstack Monorepo",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "scripts": {
     "dev": "npm run dev:backend",
     "dev:backend": "cd backend && npm run dev",

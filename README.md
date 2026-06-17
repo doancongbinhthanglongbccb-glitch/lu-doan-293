@@ -16,7 +16,8 @@ cbquiz/
 ├── shared/            # Constants dùng chung FE + BE
 ├── docs/              # API, Deploy, Database
 ├── scripts/           # Helper scripts
-├── render.yaml        # Deploy Render
+├── Dockerfile         # Build production (Sevalla khuyến nghị)
+├── nixpacks.toml      # Build dự phòng (Nixpacks)
 └── package.json       # Root scripts (dev, lint, migrate)
 ```
 
@@ -43,7 +44,9 @@ npm run dev
 
 | URL | Mô tả |
 |-----|--------|
-| http://localhost:3000 | App + API (khuyến nghị) |
+| http://localhost:3000/login | Đăng nhập |
+| http://localhost:3000/quiz | Ôn tập / thi thử |
+| http://localhost:3000/admin | Quản trị (admin) |
 | http://localhost:8080 | Chỉ static UI (debug, không gọi API) |
 
 **Admin đầu tiên:** số quân nhân `00000001` — mật khẩu = giá trị `ADMIN_PASSWORD` bạn đặt trong `backend/.env` khi migrate (không hardcode trong code).
@@ -59,13 +62,13 @@ npm run dev
 | `npm run dev:frontend` | Chỉ static (port 8080, debug UI) |
 | `npm run migrate` | DB schema + seed |
 | `npm run lint` | ESLint frontend + backend |
-| `npm start` | Production (backend) |
+| `npm start` | Production (migrate + server) |
 
 ---
 
 ## Deploy
 
-Xem [docs/DEPLOY.md](docs/DEPLOY.md) — Render Blueprint với `render.yaml`.
+Xem [docs/DEPLOY.md](docs/DEPLOY.md) — deploy trên [Sevalla](https://app.sevalla.com/).
 
 ---
 
@@ -86,7 +89,7 @@ Browser → Express (backend/src)
             └── /*         → frontend/ (static)
 ```
 
-LocalStorage client: cache session, JWT, quiz. Lịch sử câu sai sync qua `/api/quiz/wrong-history`.
+LocalStorage client: cache session, JWT, quiz. Lịch sử câu sai sync qua `/api/quiz/wrong-history`. Lịch sử thi thử qua `/api/quiz/history`.
 
 ---
 

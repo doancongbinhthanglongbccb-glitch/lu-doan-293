@@ -34,14 +34,14 @@ npm run dev
 ```
 
 API: `http://localhost:3000/api`  
-App: `http://localhost:3000/login.html`
+App: `http://localhost:3000/login`
 
 ## Scripts
 
 | Lệnh | Mô tả |
 |------|--------|
 | `npm run dev` | nodemon |
-| `npm start` | production |
+| `npm start` | migrate + production server |
 | `npm run migrate` | schema + seed |
 
 ## API

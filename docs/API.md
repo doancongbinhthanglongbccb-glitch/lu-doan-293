@@ -22,6 +22,9 @@ Chi tiết đầy đủ: [backend/README.md](../backend/README.md)
 | PUT | `/` | Admin |
 | GET | `/wrong-history` | User |
 | POST | `/wrong-history` | User |
+| GET | `/history` | User — lịch sử thi của chính mình |
+| POST | `/history` | User — lưu kết quả thi thử |
+| GET | `/history/all` | Admin — lịch sử thi toàn hệ thống (`?search=&limit=`) |
 
 ## Users — `/api/users` (admin)
 
@@ -37,3 +40,12 @@ Chi tiết đầy đủ: [backend/README.md](../backend/README.md)
 ## Health
 
 `GET /api/health`
+
+## App pages (không qua `/api`)
+
+| Path | Mô tả |
+|------|--------|
+| `/login` | Đăng nhập |
+| `/register` | Đăng ký |
+| `/quiz` | Ôn tập / thi thử |
+| `/admin` | Quản trị |
