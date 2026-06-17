@@ -1,4 +1,5 @@
 import { auth } from '../../services/auth/index.js';
+import { ROUTES } from '../../config/index.js';
 import { clearLocalSession } from '../../services/auth/session-store.js';
 import { TokenManager } from '../../services/auth/token-manager.js';
 
@@ -12,7 +13,7 @@ export const AuthPages = {
     async initLogin() {
         const user = await auth.ensureSession();
         if (user && auth.isLoggedIn()) {
-            window.location.href = auth.isAdmin() ? 'admin.html' : 'index.html';
+            window.location.href = auth.isAdmin() ? ROUTES.ADMIN : ROUTES.QUIZ;
             return;
         }
 
@@ -36,7 +37,7 @@ export const AuthPages = {
                 return;
             }
 
-            window.location.href = result.user.role === 'admin' ? 'admin.html' : 'index.html';
+            window.location.href = result.user.role === 'admin' ? ROUTES.ADMIN : ROUTES.QUIZ;
         });
     },
 
@@ -46,7 +47,7 @@ export const AuthPages = {
     async initRegister() {
         const user = await auth.ensureSession();
         if (user && auth.isLoggedIn()) {
-            window.location.href = auth.isAdmin() ? 'admin.html' : 'index.html';
+            window.location.href = auth.isAdmin() ? ROUTES.ADMIN : ROUTES.QUIZ;
             return;
         }
 

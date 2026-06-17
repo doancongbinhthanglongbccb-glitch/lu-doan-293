@@ -1,4 +1,4 @@
-import { APP_CONFIG, QUIZ_MODES, REVIEW_SUB_MODES, FILTER_MODES } from '../../config/index.js';
+import { APP_CONFIG, QUIZ_MODES, REVIEW_SUB_MODES, FILTER_MODES, ROUTES } from '../../config/index.js';
 import { $, setVisible } from '../../utils/dom.js';
 import { escapeAttr } from '../../utils/html.js';
 import { formatDateTime } from '../../utils/date.js';
@@ -661,7 +661,7 @@ export class QuizController {
                 message: 'Bạn có muốn đăng xuất?',
                 onConfirm: async () => {
                     await auth.logout();
-                    window.location.href = 'login.html';
+                    window.location.href = ROUTES.LOGIN;
                 }
             });
         });
@@ -669,7 +669,7 @@ export class QuizController {
         if (auth.isAdmin()) {
             setVisible($('btnAdminLink'), true);
             $('btnAdminLink').addEventListener('click', () => {
-                window.location.href = 'admin.html';
+                window.location.href = ROUTES.ADMIN;
             });
         }
 

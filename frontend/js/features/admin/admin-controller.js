@@ -1,4 +1,4 @@
-import { APP_CONFIG } from '../../config/index.js';
+import { APP_CONFIG, ROUTES } from '../../config/index.js';
 import { $ } from '../../utils/dom.js';
 import { htmlToText, escapeAttr } from '../../utils/html.js';
 import {
@@ -414,7 +414,7 @@ export class AdminController {
         this.setupTemplateMenu();
 
         $('btnGoQuiz').onclick = () => {
-            window.location.href = 'index.html';
+            window.location.href = ROUTES.QUIZ;
         };
         $('btnLogout').onclick = () => {
             ModalManager.confirm({
@@ -422,7 +422,7 @@ export class AdminController {
                 message: 'Bạn có muốn đăng xuất?',
                 onConfirm: async () => {
                     await auth.logout();
-                    window.location.href = 'login.html';
+                    window.location.href = ROUTES.LOGIN;
                 }
             });
         };

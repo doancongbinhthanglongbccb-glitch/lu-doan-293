@@ -6,6 +6,14 @@ import {
     API_DEFAULT_RETRIES
 } from './constants.js';
 
+/** App page paths (served by backend without .html extension) */
+export const ROUTES = {
+    LOGIN: '/login',
+    REGISTER: '/register',
+    ADMIN: '/admin',
+    QUIZ: '/quiz'
+};
+
 /**
  * Main application configuration.
  */

@@ -12,6 +12,7 @@ import { TokenManager } from './token-manager.js';
 import { clearLocalSession, saveSessionUser } from './session-store.js';
 import * as userRepo from '../../storage/user-repository.js';
 import * as quizRepo from '../../storage/quiz-repository.js';
+import { ROUTES } from '../../config/index.js';
 
 /**
  * Authentication via REST API + JWT (production).
@@ -67,7 +68,7 @@ export class ApiAuthProvider extends AuthProvider {
      * @param {string} [redirectTo]
      * @returns {Promise<object|null>}
      */
-    async requireAuthAsync(redirectTo = 'login.html') {
+    async requireAuthAsync(redirectTo = ROUTES.LOGIN) {
         const user = await this.ensureSession();
         if (!user || !this.isLoggedIn()) {
             window.location.href = redirectTo;
@@ -80,7 +81,7 @@ export class ApiAuthProvider extends AuthProvider {
      * @param {string} [redirectTo]
      * @returns {Promise<object|null>}
      */
-    async requireAdminAsync(redirectTo = 'index.html') {
+    async requireAdminAsync(redirectTo = ROUTES.QUIZ) {
         const user = await this.requireAuthAsync();
         if (!user) return null;
         if (!this.isAdmin()) {

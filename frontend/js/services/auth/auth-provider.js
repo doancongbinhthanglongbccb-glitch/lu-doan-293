@@ -2,6 +2,8 @@
  * Auth provider interface — implement for local or API backend.
  * @abstract
  */
+import { ROUTES } from '../../config/index.js';
+
 export class AuthProvider {
     /** @returns {Promise<object>} */
     async initUsers() {
@@ -56,7 +58,7 @@ export class AuthProvider {
      * @param {string} [redirectTo]
      * @returns {boolean}
      */
-    requireAuth(redirectTo = 'login.html') {
+    requireAuth(redirectTo = ROUTES.LOGIN) {
         if (!this.isLoggedIn()) {
             window.location.href = redirectTo;
             return false;
@@ -68,7 +70,7 @@ export class AuthProvider {
      * @param {string} [redirectTo]
      * @returns {boolean}
      */
-    requireAdmin(redirectTo = 'index.html') {
+    requireAdmin(redirectTo = ROUTES.QUIZ) {
         if (!this.requireAuth()) return false;
         if (!this.isAdmin()) {
             window.location.href = redirectTo;

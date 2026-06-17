@@ -48,11 +48,29 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use('/api', apiRateLimiter, apiRoutes);
 app.use('/shared', express.static(sharedRoot));
-app.use(express.static(frontendRoot));
+
+/** Clean page URLs (no .html in the address bar) */
+const pages = {
+    login: 'login.html',
+    register: 'register.html',
+    admin: 'admin.html',
+    quiz: 'index.html'
+};
+
+for (const [route, file] of Object.entries(pages)) {
+    app.get(`/${route}`, (req, res) => {
+        res.sendFile(path.join(frontendRoot, file));
+    });
+    app.get(`/${file}`, (req, res) => {
+        res.redirect(301, `/${route}`);
+    });
+}
 
 app.get('/', (req, res) => {
-    res.redirect('/login.html');
+    res.redirect('/login');
 });
+
+app.use(express.static(frontendRoot));
 
 app.use(errorHandler);
 
