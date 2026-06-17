@@ -27,6 +27,7 @@
         <nav class="admin-section-nav">
             <button type="button" class="admin-section-btn active" data-section="questions">📚 Quản lý câu hỏi</button>
             <button type="button" class="admin-section-btn" data-section="users">👥 Quản lý người dùng</button>
+            <button type="button" class="admin-section-btn" data-section="history">📊 Lịch sử thi</button>
         </nav>
 
         <!-- PANEL: CÂU HỎI -->
@@ -130,6 +131,36 @@
                 </table>
             </div>
         </div>
+
+        <!-- PANEL: LỊCH SỬ THI -->
+        <div id="panelHistory" class="admin-section-panel">
+            <div class="admin-users-header">
+                <h2>Lịch sử thi toàn hệ thống</h2>
+                <div class="user-search-wrap">
+                    <input type="text" id="historySearchInput" placeholder="Tìm số quân nhân hoặc họ tên..." class="user-search-input">
+                    <button type="button" id="btnReloadHistory" class="btn-sm btn-blue">Tải lại</button>
+                </div>
+            </div>
+            <p class="toolbar-hint" style="margin:0 0 14px 0;">Admin xem kết quả <strong>Thi thử</strong> của tất cả người dùng. User thường chỉ xem được lịch sử của chính mình.</p>
+            <div class="table-wrap">
+                <table class="admin-table admin-history-table">
+                    <thead>
+                        <tr>
+                            <th>Thời gian</th>
+                            <th>Số QN</th>
+                            <th>Họ tên</th>
+                            <th>Điểm</th>
+                            <th>Số câu</th>
+                            <th>Thời gian làm</th>
+                            <th>Đúng</th>
+                            <th>Sai</th>
+                            <th>Chưa làm</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyTableBody"></tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
     <!-- Modal Edit User -->
@@ -179,7 +210,7 @@
             <p id="resetPwdUserLabel" style="margin:0 0 15px;color:#666;font-size:14px;"></p>
             <div class="input-group">
                 <label>Mật khẩu mới</label>
-                <input type="password" id="resetPwdNew" placeholder="Tối thiểu 4 ký tự">
+                <input type="password" id="resetPwdNew" placeholder="Tối thiểu 6 ký tự">
             </div>
             <div class="modal-actions">
                 <button type="button" id="btnCancelResetPwd" class="btn-nav">Hủy</button>

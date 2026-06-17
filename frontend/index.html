@@ -41,6 +41,9 @@
                 <div class="app-card" id="btnModeExam" style="display:flex;align-items:center;justify-content:center;min-height:54px;padding:12px 20px;background:linear-gradient(135deg,#d35400,#e67e22);border-radius:12px;text-align:center;cursor:pointer;transition:all 0.3s;box-shadow:0 4px 15px rgba(211,84,0,0.25);width:100%;">
                     <h3 style="color:white;font-size:14px;font-weight:700;margin:0;text-transform:uppercase;">Thi thử</h3>
                 </div>
+                <div class="app-card" id="btnModeHistory" style="display:flex;align-items:center;justify-content:center;min-height:54px;padding:12px 20px;background:linear-gradient(135deg,#16a085,#1abc9c);border-radius:12px;text-align:center;cursor:pointer;transition:all 0.3s;box-shadow:0 4px 15px rgba(22,160,133,0.25);width:100%;">
+                    <h3 style="color:white;font-size:14px;font-weight:700;margin:0;text-transform:uppercase;">Lịch sử thi</h3>
+                </div>
                 <div class="app-card" id="btnModeReviewWrong" style="display:flex;align-items:center;justify-content:center;min-height:54px;padding:12px 20px;background:linear-gradient(135deg,#c0392b,#e74c3c);border-radius:12px;text-align:center;cursor:pointer;transition:all 0.3s;box-shadow:0 4px 15px rgba(192,57,43,0.25);width:100%;">
                     <h3 style="color:white;font-size:14px;font-weight:700;margin:0;text-transform:uppercase;">Ôn tập các câu sai</h3>
                 </div>
@@ -151,6 +154,16 @@
                 <button class="btn-nav" id="btnCancelExit">Hủy</button>
                 <button class="btn-nav" id="btnConfirmExit" style="background:var(--red-accent);color:white;border-color:var(--red-accent);">Đồng ý</button>
             </div>
+        </div>
+    </div>
+
+    <!-- SCREEN: EXAM HISTORY -->
+    <div id="screenHistory" class="screen">
+        <div class="card-box exam-history-box">
+            <button id="btnBackHomeFromHistory" class="btn-topic-back-top" type="button">Quay lại trang trước</button>
+            <h2 style="color:#2c3e50;font-size:22px;margin:0 0 6px 0;font-weight:700;text-transform:uppercase;">Lịch sử thi</h2>
+            <p style="color:#666;font-size:14px;margin:0 0 20px 0;">Các lần làm bài thi thử được lưu tự động sau khi nộp bài.</p>
+            <div id="examHistoryList" class="exam-history-list"></div>
         </div>
     </div>
 

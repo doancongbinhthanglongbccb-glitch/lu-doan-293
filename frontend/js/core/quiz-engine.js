@@ -92,11 +92,30 @@ export const QuizEngine = {
     },
 
     /**
+     * Build score summary from counts (after grading or from store).
+     * @param {number} scoreCount
+     * @param {number} totalCount
+     * @returns {{ scoreCount: number, totalCount: number, percent: number, scoreOutOf10: string, scoreNumeric: number }}
+     */
+    summarizeScore(scoreCount, totalCount) {
+        const total = totalCount || 0;
+        const percent = total > 0 ? Math.round((scoreCount / total) * 100) : 0;
+        const scoreOutOf10 = total > 0 ? ((scoreCount / total) * 10).toFixed(1) : '0';
+        return {
+            scoreCount,
+            totalCount: total,
+            percent,
+            scoreOutOf10,
+            scoreNumeric: parseFloat(scoreOutOf10)
+        };
+    },
+
+    /**
      * Calculate exam score summary.
      * @param {object[]} questions
      * @param {Record<number, object>} answers
      * @param {Function} gradeFn
-     * @returns {{ scoreCount: number, totalCount: number, percent: number, scoreOutOf10: string }}
+     * @returns {{ scoreCount: number, totalCount: number, percent: number, scoreOutOf10: string, scoreNumeric: number }}
      */
     calculateScore(questions, answers, gradeFn) {
         let scoreCount = 0;
@@ -106,9 +125,7 @@ export const QuizEngine = {
             const grade = gradeFn(q, st);
             if (grade.answered && grade.isCorrect) scoreCount++;
         });
-        const percent = totalCount > 0 ? Math.round((scoreCount / totalCount) * 100) : 0;
-        const scoreOutOf10 = totalCount > 0 ? ((scoreCount / totalCount) * 10).toFixed(1) : '0';
-        return { scoreCount, totalCount, percent, scoreOutOf10 };
+        return this.summarizeScore(scoreCount, totalCount);
     },
 
     /**

@@ -22,6 +22,7 @@ import { GridRenderer } from './grid-renderer.js';
 import { QuestionRenderer } from './question-renderer.js';
 import { ReviewListRenderer } from './review-list-renderer.js';
 import { ResultRenderer } from './result-renderer.js';
+import { ExamHistoryRenderer } from './exam-history-renderer.js';
 import { ModalManager } from '../../ui/modal-manager.js';
 import { Toast, initToast } from '../../ui/toast.js';
 import { showLoading, hideLoading } from '../../ui/loading.js';
@@ -39,6 +40,7 @@ export class QuizController {
         this.questionRenderer = null;
         this.reviewListRenderer = null;
         this.resultRenderer = new ResultRenderer();
+        this.examHistoryRenderer = null;
 
         /** @type {HTMLElement|null} */
         this.btnExitTop = null;
@@ -99,7 +101,8 @@ export class QuizController {
             'screenQuiz',
             'screenResult',
             'screenTopicReview',
-            'screenSetupWrong'
+            'screenSetupWrong',
+            'screenHistory'
         ]);
 
         this.btnExitTop = $('btnExitTop');
@@ -113,6 +116,7 @@ export class QuizController {
         this.gridRenderer = new GridRenderer($('gridQ'));
         this.questionRenderer = new QuestionRenderer($('qBox'));
         this.reviewListRenderer = new ReviewListRenderer($('reviewListContainer'));
+        this.examHistoryRenderer = new ExamHistoryRenderer($('examHistoryList'));
 
         this._wireQuestionRenderer();
     }
@@ -346,6 +350,10 @@ export class QuizController {
 
         this._updateWrongButtonVisibility();
         this._showResultScreen();
+
+        if (state.mode === QUIZ_MODES.EXAM) {
+            this._saveExamHistory();
+        }
     }
 
     /** Manual submit — require every question answered (timer auto-submit may leave blanks). */
@@ -375,8 +383,7 @@ export class QuizController {
         const state = store.getState();
         const timerState = quizTimer.getState();
         const { scoreCount, totalCount, quizData, timeTotalStr, timeStartStr, timeEndStr } = state;
-        const percent = totalCount > 0 ? Math.round((scoreCount / totalCount) * 100) : 0;
-        const scoreOutOf10 = totalCount > 0 ? ((scoreCount / totalCount) * 10).toFixed(1) : '0';
+        const { percent, scoreOutOf10 } = QuizEngine.summarizeScore(scoreCount, totalCount);
 
         this.showScreen('screenResult');
         this.resultRenderer.renderSummary({
@@ -389,6 +396,47 @@ export class QuizController {
             elapsedSec: timerState.elapsed
         });
         this._renderReviewList();
+    }
+
+    async _saveExamHistory() {
+        const state = store.getState();
+        const timerState = quizTimer.getState();
+        const { scoreCount, totalCount, quizData, timeTotalStr, timeStartStr, timeEndStr } = state;
+        const { scoreNumeric } = QuizEngine.summarizeScore(scoreCount, totalCount);
+        const counts = QuizEngine.countByStatus(quizData.questions, state.answers, hasAnswer);
+
+        try {
+            await quizRepo.saveExamHistory(state.currentUser, {
+                mode: QUIZ_MODES.EXAM,
+                score: scoreNumeric,
+                total: totalCount,
+                durationSec: timerState.elapsed,
+                detail: {
+                    title: quizData.title,
+                    timeStart: timeStartStr,
+                    timeEnd: timeEndStr,
+                    timeLimit: timeTotalStr,
+                    correct: counts.correct,
+                    wrong: counts.wrong,
+                    unanswered: counts.unanswered
+                }
+            });
+        } catch (err) {
+            console.warn('[QuizController] exam history save failed:', err.message);
+        }
+    }
+
+    async _showExamHistory() {
+        showLoading('Đang tải lịch sử thi...');
+        try {
+            const records = await quizRepo.loadExamHistory();
+            this.examHistoryRenderer.render(records);
+            this.showScreen('screenHistory');
+        } catch (err) {
+            handleError(err, { context: 'QuizController._showExamHistory', fallbackKey: 'NETWORK' });
+        } finally {
+            hideLoading();
+        }
     }
 
     _renderReviewList() {
@@ -526,6 +574,8 @@ export class QuizController {
     _bindEvents() {
         $('btnModeReview').addEventListener('click', () => this._startGeneralReview());
         $('btnModeExam').addEventListener('click', () => this.showScreen('screenSetup'));
+        $('btnModeHistory').addEventListener('click', () => this._showExamHistory());
+        $('btnBackHomeFromHistory').addEventListener('click', () => this.showScreen('screenHome'));
         $('btnBackHomeFromSetup').addEventListener('click', () => this.showScreen('screenHome'));
 
         $('btnModeReviewWrong').addEventListener('click', () => {

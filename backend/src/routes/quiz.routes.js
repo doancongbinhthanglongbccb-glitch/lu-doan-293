@@ -15,4 +15,10 @@ router.get('/wrong-history', quizController.getWrongHistory);
 
 router.post('/wrong-history', quizController.postWrongHistory);
 
+router.get('/history/all', requireAdmin, quizController.getAllQuizHistory);
+
+router.get('/history', quizController.getQuizHistory);
+
+router.post('/history', quizController.postQuizHistory);
+
 export default router;

@@ -36,3 +36,33 @@ export function postWrongHistory(req, res, next) {
         next(err);
     }
 }
+
+export function getQuizHistory(req, res, next) {
+    try {
+        const limit = req.query.limit != null ? parseInt(req.query.limit, 10) : 50;
+        const records = quizService.getQuizHistory(req.user.id, limit);
+        sendSuccess(res, { records });
+    } catch (err) {
+        next(err);
+    }
+}
+
+export function getAllQuizHistory(req, res, next) {
+    try {
+        const limit = req.query.limit != null ? parseInt(req.query.limit, 10) : 100;
+        const search = req.query.search || '';
+        const records = quizService.getAllQuizHistory({ limit, search });
+        sendSuccess(res, { records });
+    } catch (err) {
+        next(err);
+    }
+}
+
+export function postQuizHistory(req, res, next) {
+    try {
+        const record = quizService.saveQuizHistory(req.user.id, req.body);
+        sendSuccess(res, { record }, 'Đã lưu lịch sử thi.', 201);
+    } catch (err) {
+        next(err);
+    }
+}

@@ -25,7 +25,7 @@ app.use(
         contentSecurityPolicy: {
             directives: {
                 defaultSrc: ["'self'"],
-                scriptSrc: ["'self'", 'https://cdn.jsdelivr.net', "'unsafe-eval'"],
+                scriptSrc: ["'self'", 'https://cdn.jsdelivr.net', 'https://cdn.sheetjs.com', "'unsafe-eval'"],
                 styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
                 fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
                 imgSrc: ["'self'", 'data:'],

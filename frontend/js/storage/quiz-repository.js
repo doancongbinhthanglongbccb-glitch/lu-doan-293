@@ -6,6 +6,7 @@ import { localStorageAdapter, getHistoryKey } from './local-storage-adapter.js';
 import { eventBus } from '../core/event-bus.js';
 import { EVENTS } from '../config/index.js';
 import { apiClient } from '../services/api/api-client.js';
+import { unwrapPayload, pickRecords, pickRecord } from '../services/api/api-response.js';
 
 /**
  * @typedef {Object} QuizTopic
@@ -233,7 +234,7 @@ function _getHistory(user, type) {
  */
 export async function loadWrongHistoryFromApi(user) {
     const { data } = await apiClient.get('/quiz/wrong-history', { silent: true });
-    const payload = data.data || data;
+    const payload = unwrapPayload(data);
     const wrongHistory = payload.wrongHistory || {};
     const correctHistory = payload.correctHistory || {};
     saveWrongHistory(user, wrongHistory);
@@ -254,6 +255,39 @@ export async function syncWrongHistoryToApi(user, wrongHistory, correctHistory) 
         { wrongHistory, correctHistory },
         { silent: true }
     );
+}
+
+/**
+ * Load exam history from API.
+ * @returns {Promise<object[]>}
+ */
+export async function loadExamHistory(limit = 50) {
+    const { data } = await apiClient.get(`/quiz/history?limit=${limit}`, { silent: true });
+    return pickRecords(data);
+}
+
+/**
+ * Load exam history for all users (admin).
+ * @param {object} [options]
+ * @returns {Promise<object[]>}
+ */
+export async function loadAllExamHistory({ limit = 100, search = '' } = {}) {
+    const params = new URLSearchParams();
+    params.set('limit', String(limit));
+    if (search) params.set('search', search);
+    const { data } = await apiClient.get(`/quiz/history/all?${params}`, { silent: true });
+    return pickRecords(data);
+}
+
+/**
+ * Save an exam session to server.
+ * @param {object|null} user
+ * @param {object} record
+ */
+export async function saveExamHistory(user, record) {
+    if (!user) return null;
+    const { data } = await apiClient.post('/quiz/history', record, { silent: true });
+    return pickRecord(data);
 }
 
 /** @type {ReturnType<typeof setTimeout>|null} */

@@ -20,6 +20,7 @@ import { ModalManager } from '../../ui/modal-manager.js';
 import { Toast } from '../../ui/toast.js';
 import { showLoading, hideLoading } from '../../ui/loading.js';
 import { handleError } from '../../utils/errors.js';
+import { renderAdminHistoryTable } from '../quiz/exam-history-renderer.js';
 
 /**
  * Admin panel controller — CRUD topics/questions, Excel, user management.
@@ -32,6 +33,10 @@ export class AdminController {
         this.editingQuestionIdx = -1;
         this.userTab = 'pending';
         this.userSearchQuery = '';
+        this.historySearchQuery = '';
+        /** @type {object[]} */
+        this.historyRecords = [];
+        this._historySearchTimer = null;
     }
 
     /** Initialize admin panel */
@@ -51,6 +56,7 @@ export class AdminController {
             this.renderQuestionList();
             this.bindEvents();
             this.bindUserEvents();
+            this.bindHistoryEvents();
             this.renderUserTable();
         } catch (err) {
             handleError(err, { context: 'AdminController.init', fallbackKey: 'QUIZ_LOAD' });
@@ -445,7 +451,9 @@ export class AdminController {
         });
         $('panelQuestions').classList.toggle('active', section === 'questions');
         $('panelUsers').classList.toggle('active', section === 'users');
+        $('panelHistory').classList.toggle('active', section === 'history');
         if (section === 'users') this.renderUserTable();
+        if (section === 'history') this.loadHistoryTable();
     }
 
     getFilteredUsers() {
@@ -628,5 +636,43 @@ export class AdminController {
         $('btnSaveEditUser').onclick = () => this.saveEditUser();
         $('btnCancelResetPwd').onclick = () => ModalManager.close('userResetPwdModal');
         $('btnConfirmResetPwd').onclick = () => this.confirmResetPwd();
+    }
+
+    // ——— Exam history (admin) ———
+
+    bindHistoryEvents() {
+        $('btnReloadHistory').onclick = () => this.loadHistoryTable();
+
+        $('historySearchInput').oninput = e => {
+            this.historySearchQuery = e.target.value.trim();
+            if (this._historySearchTimer) clearTimeout(this._historySearchTimer);
+            this._historySearchTimer = setTimeout(() => {
+                if ($('panelHistory').classList.contains('active')) {
+                    this.loadHistoryTable();
+                }
+            }, 350);
+        };
+    }
+
+    async loadHistoryTable() {
+        showLoading('Đang tải lịch sử thi...');
+        try {
+            this.historyRecords = await quizRepo.loadAllExamHistory({
+                limit: 200,
+                search: this.historySearchQuery
+            });
+            this.renderHistoryTable();
+        } catch (err) {
+            handleError(err, { context: 'AdminController.loadHistoryTable', fallbackKey: 'NETWORK' });
+        } finally {
+            hideLoading();
+        }
+    }
+
+    renderHistoryTable() {
+        const emptyMessage = this.historySearchQuery
+            ? 'Không tìm thấy lịch sử thi phù hợp.'
+            : 'Chưa có lịch sử thi nào trong hệ thống.';
+        renderAdminHistoryTable($('historyTableBody'), this.historyRecords, emptyMessage);
     }
 }
