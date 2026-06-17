@@ -11,18 +11,20 @@ function authKeyGenerator(req) {
 }
 
 /** Rate limit for login/register — per military ID, failed attempts only */
-export const authRateLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: env.isDev ? 200 : 5,
-    standardHeaders: true,
-    legacyHeaders: false,
-    skipSuccessfulRequests: true,
-    keyGenerator: authKeyGenerator,
-    message: {
-        success: false,
-        message: 'Quá nhiều lần thử. Vui lòng thử lại sau 15 phút.'
-    }
-});
+export const authRateLimiter = env.authRateLimitEnabled
+    ? rateLimit({
+          windowMs: 15 * 60 * 1000,
+          max: env.isDev ? 200 : 5,
+          standardHeaders: true,
+          legacyHeaders: false,
+          skipSuccessfulRequests: true,
+          keyGenerator: authKeyGenerator,
+          message: {
+              success: false,
+              message: 'Quá nhiều lần thử. Vui lòng thử lại sau 15 phút.'
+          }
+      })
+    : (req, res, next) => next();
 
 /** General API rate limit */
 export const apiRateLimiter = rateLimit({

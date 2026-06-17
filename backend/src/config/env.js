@@ -27,6 +27,8 @@ if (!isDev && jwtSecret === DEV_JWT_FALLBACK) {
 
 const rawDbPath = process.env.DB_PATH || './database/cbquiz.db';
 
+const authRateLimitFlag = (process.env.AUTH_RATE_LIMIT ?? '1').toLowerCase();
+
 export const env = {
     port: parseInt(process.env.PORT || '3000', 10),
     nodeEnv,
@@ -37,5 +39,6 @@ export const env = {
     dbPath: path.isAbsolute(rawDbPath) ? rawDbPath : path.resolve(backendRoot, rawDbPath),
     bcryptRounds: parseInt(process.env.BCRYPT_ROUNDS || '10', 10),
     adminPassword: process.env.ADMIN_PASSWORD || null,
-    isDev
+    isDev,
+    authRateLimitEnabled: !['0', 'false', 'off'].includes(authRateLimitFlag)
 };
