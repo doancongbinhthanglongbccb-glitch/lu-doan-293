@@ -83,6 +83,8 @@ Import nhanh: copy nội dung `backend/.env.example`, sửa giá trị, **Import
 
 > `ADMIN_PASSWORD` chỉ dùng khi DB trống (migrate seed admin `00000001`). Redeploy sau không cần đổi trừ khi xóa disk.
 
+> **Ngân hàng câu hỏi:** `questions.json` chỉ seed **một lần** khi DB mới. Xóa hết câu hỏi rồi deploy lại **không** bị khôi phục mẫu (trừ khi xóa cả file DB trên persistent disk).
+
 ---
 
 ## Deploy & kiểm tra

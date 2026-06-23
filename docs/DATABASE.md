@@ -25,7 +25,7 @@ npm run migrate
 Tự động:
 1. Apply schema
 2. Seed admin `00000001` — mật khẩu từ biến môi trường `ADMIN_PASSWORD` (bắt buộc lần seed đầu)
-3. Seed quiz từ `frontend/data/questions.json` (nếu DB trống)
+3. Seed quiz từ `frontend/data/questions.json` — **chỉ lần đầu cài đặt** (`quiz_meta.seed_applied = 0`). Sau khi admin đã lưu hoặc đã seed một lần, redeploy **không** nạp lại mẫu dù ngân hàng trống.
 
 ## Sevalla + Persistent storage
 

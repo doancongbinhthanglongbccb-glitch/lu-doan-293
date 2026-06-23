@@ -170,8 +170,8 @@ export function replaceQuizData(data) {
 
     runTransaction(db, () => {
         db.prepare(
-            `INSERT INTO quiz_meta (id, title, updated_at) VALUES (1, ?, datetime('now'))
-             ON CONFLICT(id) DO UPDATE SET title = excluded.title, updated_at = datetime('now')`
+            `INSERT INTO quiz_meta (id, title, updated_at, seed_applied) VALUES (1, ?, datetime('now'), 1)
+             ON CONFLICT(id) DO UPDATE SET title = excluded.title, updated_at = datetime('now'), seed_applied = 1`
         ).run(title);
 
         const existingTopicIds = db.prepare('SELECT id FROM topics').all().map(r => r.id);
@@ -233,6 +233,8 @@ export function importQuestionsToTopic(topicId, questions) {
             insertQuestionWithUniqueHash(insertQuestion, topicId, q, qIndex);
             added++;
         });
+
+        db.prepare('UPDATE quiz_meta SET seed_applied = 1 WHERE id = 1').run();
     });
 
     return { added, topicId };
