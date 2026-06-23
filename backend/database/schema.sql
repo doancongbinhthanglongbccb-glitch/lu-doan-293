@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS quiz_meta (
     title       TEXT NOT NULL DEFAULT 'Hệ thống ôn tập trắc nghiệm',
     updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
     seed_applied INTEGER NOT NULL DEFAULT 0
+    
 );
 
 CREATE TABLE IF NOT EXISTS topics (
