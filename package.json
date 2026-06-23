@@ -13,6 +13,7 @@
     "dev:frontend": "serve frontend -l 8080",
     "start": "cd backend && npm start",
     "migrate": "cd backend && npm run migrate",
+    "generate:templates": "node scripts/generate-excel-templates.mjs",
     "lint": "eslint frontend/js/ backend/src/ backend/database/",
     "lint:fix": "eslint frontend/js/ backend/src/ backend/database/ --fix",
     "format": "prettier --write \"frontend/js/**/*.js\" \"frontend/css/**/*.css\""

@@ -3,9 +3,13 @@ import { assignQuestionHash } from '../../utils/hash.js';
 import { assignAnswerLetters, nextQuestionId } from '../../core/grading.js';
 import { textToHtml, htmlToEditText } from './formatters.js';
 import { QUESTION_TYPES } from '../../config/constants.js';
+import { EXCEL_TEMPLATE_TOPICS } from '../../../../shared/constants/excel-template.js';
 
-/** Excel template downloads — thêm file vào frontend/data/ rồi khai báo tại đây */
-export const TEMPLATE_FILES = [];
+/** Excel template downloads — paths relative to frontend root */
+export const TEMPLATE_FILES = EXCEL_TEMPLATE_TOPICS.map(t => ({
+    label: t.label,
+    file: `data/${t.fileName}`
+}));
 
 /**
  * Lấy text từ row theo nhiều tên cột.
