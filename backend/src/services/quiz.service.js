@@ -15,6 +15,11 @@ export function saveQuiz(data) {
         err.status = 400;
         throw err;
     }
+    if (!Array.isArray(data.topics)) {
+        const err = new Error('Thiếu danh sách chủ đề (topics).');
+        err.status = 400;
+        throw err;
+    }
     return quizModel.replaceQuizData(data);
 }
 
@@ -29,11 +34,28 @@ export function getWrongHistory(userId) {
  * @param {number} userId
  * @param {object} body
  */
+/**
+ * Sanitize client history maps — only string keys, non-negative integers.
+ * @param {Record<string, unknown>} map
+ * @returns {Record<string, number>}
+ */
+function sanitizeHistoryMap(map) {
+    if (!map || typeof map !== 'object') return {};
+    const out = {};
+    for (const [key, value] of Object.entries(map)) {
+        if (typeof key !== 'string' || !key.trim()) continue;
+        const n = Number(value);
+        if (!Number.isFinite(n) || n < 0) continue;
+        out[key] = Math.floor(n);
+    }
+    return out;
+}
+
 export function saveWrongHistory(userId, body) {
     return wrongModel.saveHistory(
         userId,
-        body.wrongHistory || {},
-        body.correctHistory || {}
+        sanitizeHistoryMap(body.wrongHistory),
+        sanitizeHistoryMap(body.correctHistory)
     );
 }
 
@@ -77,6 +99,11 @@ export function saveQuizHistory(userId, body) {
         err.status = 400;
         throw err;
     }
+    if (score != null && score > total) {
+        const err = new Error('Điểm không được lớn hơn tổng số câu.');
+        err.status = 400;
+        throw err;
+    }
 
     const durationSec =
         body.durationSec != null ? Math.max(0, Math.round(Number(body.durationSec))) : null;
@@ -88,4 +115,19 @@ export function saveQuizHistory(userId, body) {
         durationSec,
         detail: body.detail ?? null
     });
+}
+
+/**
+ * Import câu hỏi vào một topic cụ thể (không xóa các topic khác)
+ * @param {number} topicId 
+ * @param {Array} questions 
+ */
+export function importQuestionsToTopic(topicId, questions) {
+    if (!topicId || !Array.isArray(questions)) {
+        const err = new Error('Thiếu topicId hoặc questions không phải mảng');
+        err.status = 400;
+        throw err;
+    }
+
+    return quizModel.importQuestionsToTopic(topicId, questions);
 }

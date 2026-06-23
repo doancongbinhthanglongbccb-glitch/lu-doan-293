@@ -11,6 +11,8 @@ router.get('/', quizController.getQuiz);
 
 router.put('/', requireAdmin, quizController.putQuiz);
 
+router.post('/topics/:topicId/import', requireAdmin, quizController.importToTopic);
+
 router.get('/wrong-history', quizController.getWrongHistory);
 
 router.post('/wrong-history', quizController.postWrongHistory);

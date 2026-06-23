@@ -1,6 +1,8 @@
 import { APP_CONFIG, ROUTES } from '../../config/index.js';
 import { $ } from '../../utils/dom.js';
 import { htmlToText, escapeAttr } from '../../utils/html.js';
+import { clone } from '../../utils/array.js';
+import { assignQuestionHash } from '../../utils/hash.js';
 import {
     countAllQuestions,
     getQuestionTypeLabel,
@@ -21,6 +23,8 @@ import { Toast } from '../../ui/toast.js';
 import { showLoading, hideLoading } from '../../ui/loading.js';
 import { handleError } from '../../utils/errors.js';
 import { renderAdminHistoryTable } from '../quiz/exam-history-renderer.js';
+import { apiClient } from '../../services/api/api-client.js';
+import { unwrapPayload } from '../../services/api/api-response.js';
 
 /**
  * Admin panel controller — CRUD topics/questions, Excel, user management.
@@ -125,12 +129,14 @@ export class AdminController {
     }
 
     async saveData() {
+        const snapshot = clone(this.quizData);
         try {
             this.quizData = await quizRepo.saveQuizData(this.quizData);
             this.renderStats();
             this.renderTopicList();
             this.renderQuestionList();
         } catch (err) {
+            this.quizData = snapshot;
             Toast.error(err.message || 'Không lưu được dữ liệu.');
             throw err;
         }
@@ -312,6 +318,7 @@ export class AdminController {
             noShuffle: $('qNoShuffle').checked,
             answers
         };
+        assignQuestionHash(q);
         return q;
     }
 
@@ -340,14 +347,15 @@ export class AdminController {
     }
 
     /**
+     * Import Excel vào topic đang chọn.
      * @param {File} file
      */
     importExcel(file) {
         const reader = new FileReader();
-        reader.onload = e => {
+        reader.onload = async (e) => {
             try {
                 const wb = XLSX.read(e.target.result, { type: 'array' });
-                const { topicTitle, questions } = importWorkbook(wb, file.name);
+                const { questions, warnings } = importWorkbook(wb, file.name, this.quizData);
 
                 if (!questions.length) {
                     return Toast.error(
@@ -355,39 +363,87 @@ export class AdminController {
                     );
                 }
 
-                const mc = questions.filter(q => q.type === 'multiplechoice').length;
-                const essay = questions.filter(q => q.type === 'essayquestion').length;
-                const existingIdx = this.quizData.topics.findIndex(t => t.title === topicTitle);
-                const msg = existingIdx >= 0
-                    ? `Chủ đề "${topicTitle}" đã có ${this.quizData.topics[existingIdx].questions.length} câu.\nGhi đè bằng ${questions.length} câu mới?\n(${mc} trắc nghiệm, ${essay} tự luận)`
-                    : `Import ${questions.length} câu vào chủ đề "${topicTitle}"?\n(${mc} trắc nghiệm, ${essay} tự luận)`;
+                const mcCount = questions.filter(q => q.type === 'multiplechoice').length;
+                const essayCount = questions.filter(
+                    q => q.type === 'essayquestion' || q.type === 'Fillintheblank'
+                ).length;
+
+                const currentTopic = this.quizData.topics[this.selectedTopicIdx];
+                if (!currentTopic) {
+                    return Toast.error('Chưa có chủ đề nào được chọn.');
+                }
+
+                const preview = questions
+                    .slice(0, 2)
+                    .map((q, i) => `${i + 1}. ${htmlToText(q.contentHtml).substring(0, 60)}`)
+                    .join('\n');
+
+                const confirmMsg =
+                    `Import ${questions.length} câu vào chủ đề "${currentTopic.title}"?\n\n` +
+                    `• Trắc nghiệm: ${mcCount}\n` +
+                    `• Tự luận: ${essayCount}\n\n` +
+                    `Xem trước:\n${preview}${questions.length > 2 ? '\n...' : ''}` +
+                    (warnings.length
+                        ? `\n\n⚠ ${warnings.length} cảnh báo (đáp án không khớp):\n${warnings.slice(0, 3).join('\n')}${warnings.length > 3 ? '\n...' : ''}`
+                        : '');
 
                 ModalManager.confirm({
-                    title: 'Import Excel',
-                    message: msg,
+                    title: 'Xác nhận Import',
+                    message: confirmMsg,
                     onConfirm: async () => {
-                        let baseId = nextQuestionId(this.quizData);
-                        questions.forEach(q => {
-                            q.id = baseId++;
-                        });
+                        showLoading(`Đang import ${questions.length} câu hỏi...`);
 
-                        if (existingIdx >= 0) {
-                            this.quizData.topics[existingIdx].questions = questions;
-                            this.selectedTopicIdx = existingIdx;
-                        } else {
-                            this.quizData.topics.push({ title: topicTitle, questions });
-                            this.selectedTopicIdx = this.quizData.topics.length - 1;
+                        try {
+                            const topicId =
+                                currentTopic.id ||
+                                (await this._getTopicIdByIndex(this.selectedTopicIdx));
+
+                            if (!topicId) {
+                                throw new Error('Không tìm thấy ID của chủ đề. Hãy tải lại trang.');
+                            }
+
+                            const { data } = await apiClient.post(
+                                `/quiz/topics/${topicId}/import`,
+                                { questions },
+                                { silent: true }
+                            );
+                            const result = unwrapPayload(data);
+
+                            Toast.success(
+                                `Import thành công ${result.added ?? questions.length} câu hỏi!`
+                            );
+
+                            await this._loadData();
+                            this.renderStats();
+                            this.renderTopicList();
+                            this.renderQuestionList();
+                        } catch (err) {
+                            console.error(err);
+                            Toast.error('Import thất bại: ' + err.message);
+                        } finally {
+                            hideLoading();
                         }
-
-                        await this.saveData();
-                        Toast.success(`Import thành công! ${questions.length} câu → chủ đề "${topicTitle}"`);
                     }
                 });
             } catch (err) {
-                Toast.error('Lỗi đọc Excel: ' + err.message);
+                console.error(err);
+                Toast.error('Lỗi khi đọc file Excel: ' + err.message);
             }
         };
+
         reader.readAsArrayBuffer(file);
+    }
+
+    /**
+     * Helper: Lấy topicId theo index (fallback)
+     */
+    async _getTopicIdByIndex(idx) {
+        try {
+            const freshData = await quizRepo.loadQuizData();
+            return freshData.topics[idx]?.id;
+        } catch {
+            return null;
+        }
     }
 
     bindEvents() {
@@ -461,8 +517,10 @@ export class AdminController {
         return auth.getUsers().filter(u => {
             const inTab =
                 this.userTab === 'pending'
-                    ? u.status === 'pending' || u.status === 'rejected'
-                    : u.status === 'approved';
+                    ? u.status === 'pending'
+                    : this.userTab === 'rejected'
+                      ? u.status === 'rejected'
+                      : u.status === 'approved';
             if (!inTab) return false;
             if (!q) return true;
             return u.militaryId.includes(q) || (u.fullName || '').toLowerCase().includes(q);
@@ -471,7 +529,8 @@ export class AdminController {
 
     updateUserTabCounts() {
         const users = auth.getUsers();
-        $('pendingCount').textContent = users.filter(u => u.status === 'pending' || u.status === 'rejected').length;
+        $('pendingCount').textContent = users.filter(u => u.status === 'pending').length;
+        $('rejectedCount').textContent = users.filter(u => u.status === 'rejected').length;
         $('approvedCount').textContent = users.filter(u => u.status === 'approved').length;
     }
 
@@ -495,12 +554,13 @@ export class AdminController {
         users.forEach(u => {
             const tr = document.createElement('tr');
             const isAdmin = u.role === 'admin';
-            const needsReview = u.status === 'pending' || u.status === 'rejected';
             let actions = '';
 
-            if (needsReview && !isAdmin) {
+            if (u.status === 'pending' && !isAdmin) {
                 actions += `<button class="btn-sm btn-green user-approve" data-id="${u.militaryId}">Duyệt</button> `;
                 actions += `<button class="btn-sm btn-delete user-reject" data-id="${u.militaryId}">Từ chối</button> `;
+            } else if (u.status === 'rejected' && !isAdmin) {
+                actions += `<button class="btn-sm btn-green user-approve" data-id="${u.militaryId}">Duyệt lại</button> `;
             }
             actions += `<button class="btn-sm btn-edit user-edit" data-id="${u.militaryId}">Sửa</button> `;
             actions += `<button class="btn-sm btn-blue user-reset" data-id="${u.militaryId}">Reset MK</button> `;

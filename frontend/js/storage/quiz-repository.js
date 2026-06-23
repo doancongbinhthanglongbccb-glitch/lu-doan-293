@@ -10,6 +10,7 @@ import { unwrapPayload, pickRecords, pickRecord } from '../services/api/api-resp
 
 /**
  * @typedef {Object} QuizTopic
+ * @property {number} [id]
  * @property {string} title
  * @property {object[]} questions
  */
@@ -71,10 +72,13 @@ export function cacheQuizData(data) {
 export async function loadQuizData() {
     try {
         const { data } = await apiClient.get('/quiz', { silent: true });
-        const normalized = normalizeData(data.data || data);
+        const normalized = normalizeData(unwrapPayload(data));
         cacheQuizData(normalized);
         return normalized;
     } catch (err) {
+        if (err.status === 401 || err.status === 403) {
+            throw err;
+        }
         const cached = getCachedQuizData();
         if (cached) {
             console.warn('[quiz-repository] API load failed, using cache:', err.message);
@@ -91,8 +95,9 @@ export async function loadQuizData() {
  */
 export async function saveQuizData(data) {
     const normalized = normalizeData(clone(data));
-    await apiClient.put('/quiz', normalized, { silent: true });
-    return cacheQuizData(normalized);
+    const { data: body } = await apiClient.put('/quiz', normalized, { silent: true });
+    const saved = normalizeData(unwrapPayload(body));
+    return cacheQuizData(saved);
 }
 
 /**

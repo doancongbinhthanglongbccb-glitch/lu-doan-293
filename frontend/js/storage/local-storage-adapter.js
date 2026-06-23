@@ -74,6 +74,6 @@ export function getHistoryKey(user, type) {
  * @returns {string|null}
  */
 function _userHistoryId(user) {
-    if (!user || user.role === 'admin') return null;
+    if (!user) return null;
     return user.militaryId || user.username || null;
 }

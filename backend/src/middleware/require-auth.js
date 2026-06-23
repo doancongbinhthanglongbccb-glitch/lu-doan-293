@@ -21,7 +21,7 @@ export function requireAuth(req, res, next) {
             return sendError(res, 'Token không hợp lệ.', 401);
         }
 
-        const user = userModel.findById(payload.sub);
+        const user = userModel.findByIdForAuth(payload.sub);
         if (!user) {
             return sendError(res, 'Người dùng không tồn tại.', 401);
         }

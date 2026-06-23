@@ -39,7 +39,7 @@ app.use(
 );
 app.use(
     cors({
-        origin: env.isDev ? [env.corsOrigin, `http://localhost:${env.port}`] : true,
+        origin: env.isDev ? [env.corsOrigin, `http://localhost:${env.port}`] : env.corsOrigin,
         credentials: true
     })
 );

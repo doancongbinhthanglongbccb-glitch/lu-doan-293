@@ -1,5 +1,15 @@
 import * as quizService from '../services/quiz.service.js';
-import { sendSuccess } from '../utils/response.js';
+import { sendSuccess, sendError } from '../utils/response.js';
+
+/**
+ * @param {string|undefined} raw
+ * @returns {number|null}
+ */
+function parsePositiveInt(raw) {
+    if (raw == null || raw === '' || !/^\d+$/.test(String(raw))) return null;
+    const n = parseInt(String(raw), 10);
+    return n > 0 ? n : null;
+}
 
 export function getQuiz(req, res, next) {
     try {
@@ -39,7 +49,7 @@ export function postWrongHistory(req, res, next) {
 
 export function getQuizHistory(req, res, next) {
     try {
-        const limit = req.query.limit != null ? parseInt(req.query.limit, 10) : 50;
+        const limit = parsePositiveInt(req.query.limit) ?? 50;
         const records = quizService.getQuizHistory(req.user.id, limit);
         sendSuccess(res, { records });
     } catch (err) {
@@ -49,7 +59,7 @@ export function getQuizHistory(req, res, next) {
 
 export function getAllQuizHistory(req, res, next) {
     try {
-        const limit = req.query.limit != null ? parseInt(req.query.limit, 10) : 100;
+        const limit = parsePositiveInt(req.query.limit) ?? 100;
         const search = req.query.search || '';
         const records = quizService.getAllQuizHistory({ limit, search });
         sendSuccess(res, { records });
@@ -62,6 +72,22 @@ export function postQuizHistory(req, res, next) {
     try {
         const record = quizService.saveQuizHistory(req.user.id, req.body);
         sendSuccess(res, { record }, 'Đã lưu lịch sử thi.', 201);
+    } catch (err) {
+        next(err);
+    }
+}
+
+export function importToTopic(req, res, next) {
+    try {
+        const topicId = parsePositiveInt(req.params.topicId);
+        const { questions } = req.body;
+
+        if (!topicId || !Array.isArray(questions) || questions.length === 0) {
+            return sendError(res, 'Thiếu topicId hoặc questions không hợp lệ', 400);
+        }
+
+        const result = quizService.importQuestionsToTopic(topicId, questions);
+        sendSuccess(res, result, `Đã thêm ${result.added} câu hỏi vào topic thành công.`);
     } catch (err) {
         next(err);
     }

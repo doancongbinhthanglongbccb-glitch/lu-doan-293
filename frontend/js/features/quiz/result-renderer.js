@@ -30,7 +30,7 @@ export class ResultRenderer {
         };
 
         set('resMainTitle', title);
-        set('resSub1', `Tổng điểm: 10, Thời gian: ${timeTotalStr}`);
+        set('resSub1', `Điểm: ${scoreOutOf10}/10, Thời gian: ${timeTotalStr}`);
         set('txtTimeStart', timeStartStr);
         set('txtTimeEnd', timeEndStr);
         set('valPercent', `${percent}%`);

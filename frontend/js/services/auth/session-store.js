@@ -1,5 +1,7 @@
 import { TokenManager } from './token-manager.js';
 import * as userRepo from '../../storage/user-repository.js';
+import { localStorageAdapter } from '../../storage/local-storage-adapter.js';
+import { APP_CONFIG } from '../../config/index.js';
 
 /**
  * @param {object} user
@@ -25,8 +27,9 @@ export function saveSessionUser(user) {
     return session;
 }
 
-/** Clear JWT tokens and cached current user. */
+/** Clear JWT tokens, cached current user, and quiz cache. */
 export function clearLocalSession() {
     TokenManager.removeToken();
     userRepo.clearCurrentUser();
+    localStorageAdapter.remove(APP_CONFIG.STORAGE_KEYS.QUIZ_DATA);
 }

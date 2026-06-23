@@ -24,7 +24,7 @@ import { ReviewListRenderer } from './review-list-renderer.js';
 import { ResultRenderer } from './result-renderer.js';
 import { ExamHistoryRenderer } from './exam-history-renderer.js';
 import { ModalManager } from '../../ui/modal-manager.js';
-import { Toast, initToast } from '../../ui/toast.js';
+import { Toast } from '../../ui/toast.js';
 import { showLoading, hideLoading } from '../../ui/loading.js';
 import { queueTypeset } from '../../ui/mathjax-renderer.js';
 import { handleError } from '../../utils/errors.js';
@@ -57,7 +57,6 @@ export class QuizController {
         const currentUser = await auth.requireAuthAsync();
         if (!currentUser) return;
 
-        initToast();
         showLoading('Đang tải dữ liệu...');
 
         try {
@@ -78,6 +77,7 @@ export class QuizController {
 
             this._setupHomeScreen(originalData);
             this._bindEvents();
+            this._bindQuizDataRefresh();
             this.showScreen('screenHome');
         } catch (err) {
             handleError(err, { context: 'QuizController.init', fallbackKey: 'QUIZ_LOAD' });
@@ -91,7 +91,27 @@ export class QuizController {
         const originalData = await quizRepo.loadQuizData();
         repairEssayQuestions(originalData);
         quizRepo.migrateHistoryHashes(originalData);
-        return quizRepo.cacheQuizData(originalData);
+        return originalData;
+    }
+
+    /** Reload quiz bank when tab becomes visible (admin may have updated). */
+    _bindQuizDataRefresh() {
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                this._refreshQuizDataQuietly();
+            }
+        });
+    }
+
+    async _refreshQuizDataQuietly() {
+        try {
+            const originalData = await this._loadQuizData();
+            store.setState({ originalData });
+            this._setupHomeScreen(originalData);
+        } catch (err) {
+            if (err.status === 401 || err.status === 403) return;
+            console.warn('[QuizController] refresh failed:', err.message);
+        }
     }
 
     _cacheDomRefs() {

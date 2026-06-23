@@ -1,15 +1,11 @@
 import { htmlToText } from '../../utils/html.js';
 import { assignQuestionHash } from '../../utils/hash.js';
-import { assignAnswerLetters } from '../../core/grading.js';
+import { assignAnswerLetters, nextQuestionId } from '../../core/grading.js';
 import { textToHtml, htmlToEditText } from './formatters.js';
+import { QUESTION_TYPES } from '../../config/constants.js';
 
-/** Excel template downloads — paths relative to frontend root (served as static files) */
-export const TEMPLATE_FILES = [
-    { label: 'Chính trị', file: 'data/Chính trị.xlsx' },
-    { label: 'Quân sự', file: 'data/Quân sự.xlsx' },
-    { label: 'Hậu cần', file: 'data/Hậu cần.xlsx' },
-    { label: 'Kỹ thuật', file: 'data/Kỹ thuật.xlsx' }
-];
+/** Excel template downloads — thêm file vào frontend/data/ rồi khai báo tại đây */
+export const TEMPLATE_FILES = [];
 
 /**
  * Lấy text từ row theo nhiều tên cột.
@@ -88,16 +84,19 @@ export function parseTracNghiemRow(row) {
     const answers = parseOptionsText(optionsText);
     if (!answers.length) return null;
     markCorrectAnswer(answers, correctText);
-    if (!answers.some(a => a.isCorrect) && correctText) {
-        answers[0].isCorrect = true;
-    }
+    const correctCount = answers.filter(a => a.isCorrect).length;
+    const unmatchedCorrect = !!(correctText && correctCount === 0);
 
     return {
         contentHtml: textToHtml(question),
-        type: 'multiplechoice',
+        type:
+            correctCount > 1 ? QUESTION_TYPES.MULTIPLE_RESPONSE : QUESTION_TYPES.MULTIPLE_CHOICE,
         noShuffle: false,
         answers,
-        isMul: answers.filter(a => a.isCorrect).length > 1
+        isMul: correctCount > 1,
+        _importWarning: unmatchedCorrect
+            ? `Đáp án đúng không khớp phương án: "${correctText.substring(0, 50)}"`
+            : undefined
     };
 }
 
@@ -134,26 +133,31 @@ export function parseRow(row) {
  * Import toàn bộ workbook.
  * @param {object} wb - SheetJS workbook
  * @param {string} fileName
- * @returns {{ topicTitle: string, questions: object[] }}
+ * @param {object} [quizData] - Dữ liệu hiện tại để gán ID liên tục
+ * @returns {{ topicTitle: string, questions: object[], warnings: string[] }}
  */
-export function importWorkbook(wb, fileName) {
+export function importWorkbook(wb, fileName, quizData = null) {
     const topicTitle = (fileName || 'Chủ đề mới').replace(/\.xlsx?$/i, '').trim();
     const questions = [];
-    let nextId = 1;
+    const warnings = [];
+    let nextId = quizData ? nextQuestionId(quizData) : 1;
 
     wb.SheetNames.forEach(sheetName => {
         const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { defval: '' });
         rows.forEach(row => {
             const q = parseRow(row);
             if (!q) return;
+            if (q._importWarning) {
+                warnings.push(`Câu ${nextId}: ${q._importWarning}`);
+                delete q._importWarning;
+            }
             q.id = nextId++;
-            assignQuestionHash(q);
             assignAnswerLetters(q.answers);
             questions.push(q);
         });
     });
 
-    return { topicTitle, questions };
+    return { topicTitle, questions, warnings };
 }
 
 /**
@@ -162,7 +166,6 @@ export function importWorkbook(wb, fileName) {
  * @returns {object}
  */
 export function questionToRow(q) {
-    const question = htmlToText(q.contentHtml);
     if (q.type === 'essayquestion' || q.type === 'Fillintheblank') {
         const cor = q.answers.find(a => a.isCorrect);
         const text = cor ? htmlToEditText(cor.html) : '';
@@ -171,12 +174,16 @@ export function questionToRow(q) {
             'Câu trả lời': text.replace(/\n/g, '\r\n')
         };
     }
-    const options = q.answers.map(a => a.letter + '. ' + htmlToText(a.html)).join('\r\n');
+    const options = q.answers.map(a => a.letter + '. ' + htmlToEditText(a.html)).join('\r\n');
     const correct = q.answers
         .filter(a => a.isCorrect)
-        .map(a => a.letter + '. ' + htmlToText(a.html))
+        .map(a => a.letter + '. ' + htmlToEditText(a.html))
         .join('\r\n');
-    return { 'Câu hỏi': question, 'Phương án': options, 'Đáp án đúng': correct };
+    return {
+        'Câu hỏi': htmlToEditText(q.contentHtml),
+        'Phương án': options,
+        'Đáp án đúng': correct
+    };
 }
 
 /**

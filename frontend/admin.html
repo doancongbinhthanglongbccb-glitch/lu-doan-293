@@ -15,10 +15,9 @@
             <span>Quản trị câu hỏi</span>
         </div>
         <div class="header-right">
-            <button id="btnThemeToggle" class="btn-theme-toggle" type="button" aria-label="Chế độ tối">🌙</button>
             <span class="user-badge" id="adminUserName">Admin</span>
             <button id="btnGoQuiz" class="btn-home-top">📚 Trang ôn thi</button>
-            <button id="btnLogout" class="btn-home-top">Đăng xuất</button>
+            <button id="btnLogout" class="btn-home-top" type="button">Đăng xuất</button>
         </div>
     </header>
 
@@ -114,6 +113,7 @@
             </div>
             <div class="user-tabs">
                 <button type="button" class="user-tab active" data-usertab="pending">Chờ duyệt <span id="pendingCount" class="tab-badge">0</span></button>
+                <button type="button" class="user-tab" data-usertab="rejected">Từ chối <span id="rejectedCount" class="tab-badge">0</span></button>
                 <button type="button" class="user-tab" data-usertab="approved">Đã duyệt <span id="approvedCount" class="tab-badge">0</span></button>
             </div>
             <div class="table-wrap">

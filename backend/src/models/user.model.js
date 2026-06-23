@@ -27,6 +27,17 @@ export function findById(id) {
 }
 
 /**
+ * @param {number} id
+ * @returns {object|null} Row without password_hash
+ */
+export function findByIdForAuth(id) {
+    const row = findById(id);
+    if (!row) return null;
+    const { password_hash: _pw, ...safe } = row;
+    return safe;
+}
+
+/**
  * @param {string} militaryId
  * @returns {object|null}
  */
@@ -123,11 +134,13 @@ export function deleteByMilitaryId(militaryId) {
  * @param {string} expiresAt
  */
 export function saveRefreshToken(userId, tokenHash, expiresAt) {
-    getDb()
-        .prepare(
-            `INSERT INTO refresh_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)`
-        )
-        .run(userId, tokenHash, expiresAt);
+    const db = getDb();
+    db.prepare(
+        `DELETE FROM refresh_tokens WHERE datetime(expires_at) <= datetime('now') OR revoked = 1`
+    ).run();
+    db.prepare(
+        `INSERT INTO refresh_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)`
+    ).run(userId, tokenHash, expiresAt);
 }
 
 /**
