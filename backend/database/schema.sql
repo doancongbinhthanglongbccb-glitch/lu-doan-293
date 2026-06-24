@@ -38,7 +38,8 @@ CREATE TABLE IF NOT EXISTS quiz_meta (
 CREATE TABLE IF NOT EXISTS topics (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     title       TEXT NOT NULL,
-    sort_order  INTEGER NOT NULL DEFAULT 0
+    sort_order  INTEGER NOT NULL DEFAULT 0,
+    parent_id   INTEGER REFERENCES topics(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS questions (

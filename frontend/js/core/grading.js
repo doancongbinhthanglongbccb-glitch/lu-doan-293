@@ -1,6 +1,7 @@
 import { APP_CONFIG, QUESTION_TYPES, QUESTION_TYPE_LABELS } from '../config/index.js';
 import { shuffle } from '../utils/array.js';
 import { htmlToText } from '../utils/html.js';
+import { countAllQuestionsInData, flattenQuestionsFromData } from './topic-tree.js';
 
 /**
  * @typedef {import('../core/store.js').AnswerState} AnswerState
@@ -74,8 +75,7 @@ export function prepareQuestion(q) {
  * @returns {number}
  */
 export function countAllQuestions(data) {
-    if (!data || !data.topics) return 0;
-    return data.topics.reduce((sum, t) => sum + (t.questions ? t.questions.length : 0), 0);
+    return countAllQuestionsInData(data);
 }
 
 /**
@@ -84,8 +84,7 @@ export function countAllQuestions(data) {
  * @returns {object[]}
  */
 export function flattenQuestions(data) {
-    if (!data || !data.topics) return [];
-    return data.topics.flatMap(t => t.questions || []);
+    return flattenQuestionsFromData(data);
 }
 
 /**

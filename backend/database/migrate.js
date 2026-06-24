@@ -48,6 +48,22 @@ function ensureQuizMetaSeedFlag() {
     }
 }
 
+/** Thêm parent_id cho chủ đề 2 cấp. */
+function ensureTopicParentIdColumn() {
+    const db = getDb();
+    try {
+        db.prepare('ALTER TABLE topics ADD COLUMN parent_id INTEGER REFERENCES topics(id) ON DELETE CASCADE').run();
+        console.log('[migrate] Added topics.parent_id column.');
+    } catch (err) {
+        if (!String(err.message).includes('duplicate column')) throw err;
+    }
+    try {
+        db.prepare('CREATE INDEX IF NOT EXISTS idx_topics_parent ON topics(parent_id)').run();
+    } catch {
+        /* index may exist */
+    }
+}
+
 function isQuizSeedApplied() {
     const row = getDb().prepare('SELECT seed_applied FROM quiz_meta WHERE id = 1').get();
     return !!row?.seed_applied;
@@ -137,6 +153,7 @@ function seedQuizFromFile() {
 try {
     runSchema();
     ensureQuizMetaSeedFlag();
+    ensureTopicParentIdColumn();
     seedAdmin();
     seedQuizMeta();
     seedQuizFromFile();

@@ -119,7 +119,7 @@ function syncTopicQuestions(db, topicId, questions) {
 }
 
 /**
- * Load full quiz payload matching frontend shape.
+ * Load full quiz payload — chủ đề 2 cấp (parent → children) hoặc leaf legacy.
  * @returns {{ title: string, topics: object[] }}
  */
 export function getQuizData() {
@@ -127,32 +127,80 @@ export function getQuizData() {
     const meta = db.prepare('SELECT title FROM quiz_meta WHERE id = 1').get();
     const title = meta?.title || DEFAULT_QUIZ_TITLE;
 
-    const topics = db
-        .prepare('SELECT id, title, sort_order FROM topics ORDER BY sort_order ASC, id ASC')
+    const rows = db
+        .prepare(
+            'SELECT id, title, sort_order, parent_id FROM topics ORDER BY sort_order ASC, id ASC'
+        )
         .all();
 
     const getQuestions = db.prepare(
         `SELECT hash, type, payload FROM questions WHERE topic_id = ? ORDER BY id ASC`
     );
 
-    return {
-        title,
-        topics: topics.map(t => ({
-            id: t.id,
-            title: t.title,
-            questions: getQuestions.all(t.id).map(q => {
-                try {
-                    return JSON.parse(q.payload);
-                } catch {
-                    return { hash: q.hash, type: q.type };
-                }
-            })
-        }))
-    };
+    const loadQuestions = topicId =>
+        getQuestions.all(topicId).map(q => {
+            try {
+                return JSON.parse(q.payload);
+            } catch {
+                return { hash: q.hash, type: q.type };
+            }
+        });
+
+    const childRows = rows.filter(r => r.parent_id != null);
+    const rootRows = rows.filter(r => r.parent_id == null);
+
+    const topics = rootRows.map(row => {
+        const kids = childRows.filter(c => c.parent_id === row.id);
+        if (kids.length > 0) {
+            return {
+                id: row.id,
+                title: row.title,
+                children: kids.map(c => ({
+                    id: c.id,
+                    title: c.title,
+                    questions: loadQuestions(c.id)
+                }))
+            };
+        }
+        return {
+            id: row.id,
+            title: row.title,
+            questions: loadQuestions(row.id)
+        };
+    });
+
+    return { title, topics };
 }
 
 /**
- * Sync quiz bank from frontend payload — giữ topic id và question hash khi có thể.
+ * Upsert một topic row.
+ * @returns {number}
+ */
+function upsertTopicRow(db, topic, parentId, sortOrder, keptTopicIds) {
+    const updateTopic = db.prepare(
+        'UPDATE topics SET title = ?, sort_order = ?, parent_id = ? WHERE id = ?'
+    );
+    const insertTopic = db.prepare(
+        'INSERT INTO topics (title, sort_order, parent_id) VALUES (?, ?, ?)'
+    );
+    const topicExists = db.prepare('SELECT id FROM topics WHERE id = ?');
+
+    const topicTitle = topic.title || 'Chủ đề';
+    let topicId;
+
+    if (topic.id && topicExists.get(topic.id)) {
+        updateTopic.run(topicTitle, sortOrder, parentId, topic.id);
+        topicId = topic.id;
+    } else {
+        topicId = insertTopic.run(topicTitle, sortOrder, parentId).lastInsertRowid;
+    }
+
+    keptTopicIds.add(topicId);
+    return topicId;
+}
+
+/**
+ * Sync quiz bank from frontend payload — hỗ trợ parent/children và leaf legacy.
  * @param {{ title?: string, topics: object[] }} data
  * @returns {{ title: string, topics: object[] }}
  */
@@ -177,25 +225,19 @@ export function replaceQuizData(data) {
         const existingTopicIds = db.prepare('SELECT id FROM topics').all().map(r => r.id);
         const keptTopicIds = new Set();
 
-        const updateTopic = db.prepare(
-            'UPDATE topics SET title = ?, sort_order = ? WHERE id = ?'
-        );
-        const insertTopic = db.prepare('INSERT INTO topics (title, sort_order) VALUES (?, ?)');
-        const topicExists = db.prepare('SELECT id FROM topics WHERE id = ?');
+        topics.forEach((topic, pIndex) => {
+            const hasChildren = Array.isArray(topic.children) && topic.children.length > 0;
 
-        topics.forEach((topic, tIndex) => {
-            const topicTitle = topic.title || `Chủ đề ${tIndex + 1}`;
-            let topicId;
-
-            if (topic.id && topicExists.get(topic.id)) {
-                updateTopic.run(topicTitle, tIndex, topic.id);
-                topicId = topic.id;
+            if (hasChildren) {
+                const parentId = upsertTopicRow(db, topic, null, pIndex, keptTopicIds);
+                topic.children.forEach((child, cIndex) => {
+                    const childId = upsertTopicRow(db, child, parentId, cIndex, keptTopicIds);
+                    syncTopicQuestions(db, childId, child.questions || []);
+                });
             } else {
-                topicId = insertTopic.run(topicTitle, tIndex).lastInsertRowid;
+                const leafId = upsertTopicRow(db, topic, null, pIndex, keptTopicIds);
+                syncTopicQuestions(db, leafId, topic.questions || []);
             }
-
-            keptTopicIds.add(topicId);
-            syncTopicQuestions(db, topicId, topic.questions);
         });
 
         for (const id of existingTopicIds) {
@@ -226,6 +268,15 @@ export function importQuestionsToTopic(topicId, questions) {
         if (!topic) {
             const err = new Error('Không tìm thấy chủ đề');
             err.status = 404;
+            throw err;
+        }
+
+        const hasChildren = db
+            .prepare('SELECT 1 FROM topics WHERE parent_id = ? LIMIT 1')
+            .get(topicId);
+        if (hasChildren) {
+            const err = new Error('Nhóm này đã có môn con — hãy chọn môn con để import.');
+            err.status = 400;
             throw err;
         }
 

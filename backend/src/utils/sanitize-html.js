@@ -36,7 +36,11 @@ export function sanitizeQuestionHtml(question) {
 export function sanitizeQuizDataHtml(data) {
     if (!data?.topics) return data;
     data.topics.forEach(topic => {
-        (topic.questions || []).forEach(sanitizeQuestionHtml);
+        if (Array.isArray(topic.children) && topic.children.length > 0) {
+            topic.children.forEach(child => (child.questions || []).forEach(sanitizeQuestionHtml));
+        } else {
+            (topic.questions || []).forEach(sanitizeQuestionHtml);
+        }
     });
     return data;
 }

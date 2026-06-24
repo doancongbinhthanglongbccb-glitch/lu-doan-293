@@ -2,6 +2,7 @@ import { APP_CONFIG } from '../config/index.js';
 import { clone } from '../utils/array.js';
 import { assignQuestionHash, legacyHashStr } from '../utils/hash.js';
 import { sanitizeQuizDataHtml } from '../utils/sanitize-html.js';
+import { normalizeTopicTree } from '../core/topic-tree.js';
 import { localStorageAdapter, getHistoryKey } from './local-storage-adapter.js';
 import { eventBus } from '../core/event-bus.js';
 import { EVENTS } from '../config/index.js';
@@ -34,13 +35,19 @@ export function normalizeData(data) {
     }
 
     data.topics.forEach(topic => {
-        (topic.questions || []).forEach(q => {
-            assignQuestionHash(q);
-            if (!q.type) q.type = 'multiplechoice';
-            if (!q.answers) q.answers = [];
+        const questionLists = topic.children?.length
+            ? topic.children.map(c => c.questions || [])
+            : [topic.questions || []];
+        questionLists.forEach(questions => {
+            questions.forEach(q => {
+                assignQuestionHash(q);
+                if (!q.type) q.type = 'multiplechoice';
+                if (!q.answers) q.answers = [];
+            });
         });
     });
 
+    normalizeTopicTree(data);
     return sanitizeQuizDataHtml(data);
 }
 
@@ -125,9 +132,14 @@ export function migrateHistoryHashes(quizData) {
 
     const hashMap = {};
     (quizData.topics || []).forEach(topic => {
-        (topic.questions || []).forEach(q => {
-            const legacy = String(legacyHashStr(q.contentHtml));
-            hashMap[legacy] = q.hash;
+        const questionLists = topic.children?.length
+            ? topic.children.map(c => c.questions || [])
+            : [topic.questions || []];
+        questionLists.forEach(questions => {
+            (questions || []).forEach(q => {
+                const legacy = String(legacyHashStr(q.contentHtml));
+                hashMap[legacy] = q.hash;
+            });
         });
     });
 

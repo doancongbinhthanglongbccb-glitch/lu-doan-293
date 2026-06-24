@@ -75,7 +75,11 @@ export function sanitizeQuestionHtml(question) {
 export function sanitizeQuizDataHtml(quizData) {
     if (!quizData?.topics) return quizData;
     quizData.topics.forEach(topic => {
-        (topic.questions || []).forEach(sanitizeQuestionHtml);
+        if (Array.isArray(topic.children) && topic.children.length > 0) {
+            topic.children.forEach(child => (child.questions || []).forEach(sanitizeQuestionHtml));
+        } else {
+            (topic.questions || []).forEach(sanitizeQuestionHtml);
+        }
     });
     return quizData;
 }

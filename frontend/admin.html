@@ -64,7 +64,9 @@
             <aside class="admin-sidebar">
                 <div class="sidebar-header">
                     <h3>Chủ đề</h3>
-                    <button id="btnAddTopic" class="btn-sm btn-add-icon" title="Thêm chủ đề">+</button>
+                    <div class="sidebar-header-btns">
+                        <button id="btnAddTopic" class="btn-sm btn-add-icon" type="button" title="Thêm nhóm lớn">+</button>
+                    </div>
                 </div>
                 <ul id="topicList" class="admin-topic-list"></ul>
                 <div class="sidebar-actions">
@@ -225,8 +227,12 @@
             <div class="modal-header">
                 <span class="modal-title" id="topicModalTitle">Thêm chủ đề</span>
             </div>
+            <div class="input-group" id="topicParentGroup" hidden>
+                <label for="topicParentSelect">Thuộc nhóm lớn</label>
+                <select id="topicParentSelect"></select>
+            </div>
             <div class="input-group">
-                <label>Tên chủ đề</label>
+                <label for="topicNameInput">Tên chủ đề</label>
                 <input type="text" id="topicNameInput" placeholder="Nhập tên chủ đề">
             </div>
             <div class="modal-actions">

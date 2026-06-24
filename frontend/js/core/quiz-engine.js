@@ -1,6 +1,7 @@
 import { QUIZ_MODES, REVIEW_SUB_MODES } from '../config/index.js';
 import { clone, shuffle } from '../utils/array.js';
 import { flattenQuestions, prepareQuestion, markQuestionsMul } from '../core/grading.js';
+import { listSelectableLeaves } from '../core/topic-tree.js';
 
 /**
  * Pure quiz business logic — no DOM dependencies.
@@ -13,17 +14,15 @@ export const QuizEngine = {
      * @returns {object[]}
      */
     getFlatQuestionsFromTopics(originalData, topicIndexes) {
-        let allQ = [];
-        if (originalData.topics && originalData.topics.length > 1 && topicIndexes) {
+        const leaves = listSelectableLeaves(originalData);
+        if (topicIndexes?.length && leaves.length > 1) {
+            let allQ = [];
             topicIndexes.forEach(idx => {
-                allQ = allQ.concat(originalData.topics[idx].questions);
+                if (leaves[idx]) allQ = allQ.concat(leaves[idx].topic.questions || []);
             });
-        } else if (originalData.topics) {
-            originalData.topics.forEach(t => {
-                allQ = allQ.concat(t.questions);
-            });
+            return allQ;
         }
-        return allQ;
+        return flattenQuestions(originalData);
     },
 
     /**
@@ -57,10 +56,12 @@ export const QuizEngine = {
      * @param {number} topicIndex
      * @returns {{ title: string, questions: object[] }}
      */
-    buildTopicReviewSet(originalData, topicIndex) {
-        const topic = clone(originalData.topics[topicIndex]);
+    buildTopicReviewSet(originalData, leafIndex) {
+        const leaves = listSelectableLeaves(originalData);
+        const item = leaves[leafIndex];
+        const topic = clone(item?.topic || { title: '', questions: [] });
         markQuestionsMul(topic.questions);
-        return { title: topic.title, questions: topic.questions };
+        return { title: item?.label || topic.title, questions: topic.questions || [] };
     },
 
     /**

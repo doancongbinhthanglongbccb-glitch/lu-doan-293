@@ -28,6 +28,7 @@ import { Toast } from '../../ui/toast.js';
 import { showLoading, hideLoading } from '../../ui/loading.js';
 import { queueTypeset } from '../../ui/mathjax-renderer.js';
 import { handleError } from '../../utils/errors.js';
+import { listSelectableLeaves, isTopicParent } from '../../core/topic-tree.js';
 
 /**
  * Main quiz application controller — orchestrates UI and business logic.
@@ -57,6 +58,11 @@ export class QuizController {
         const currentUser = await auth.requireAuthAsync();
         if (!currentUser) return;
 
+        this._cacheDomRefs();
+        const userDisplay = $('userDisplayName');
+        if (userDisplay) userDisplay.textContent = currentUser.fullName || currentUser.militaryId || '';
+        this._bindEvents();
+
         showLoading('Đang tải dữ liệu...');
 
         try {
@@ -69,14 +75,10 @@ export class QuizController {
                 correctHistory: historyState.correctHistory
             });
 
-            this._cacheDomRefs();
-            $('userDisplayName').textContent = currentUser.fullName || currentUser.militaryId || '';
-
             const originalData = await this._loadQuizData();
             store.setState({ originalData });
 
             this._setupHomeScreen(originalData);
-            this._bindEvents();
             this._bindQuizDataRefresh();
             this.showScreen('screenHome');
         } catch (err) {
@@ -185,7 +187,7 @@ export class QuizController {
             Toast.info('Chưa có câu hỏi. Vào Quản trị để import dữ liệu hoặc đồng bộ Online.');
         }
 
-        if (originalData.topics?.length > 1) {
+        if (listSelectableLeaves(originalData).length > 1) {
             setVisible($('btnModeTopicReview'), true);
         }
         this._updateWrongButtonVisibility();
@@ -475,19 +477,58 @@ export class QuizController {
         });
     }
 
+    _createTopicReviewCard(item, idx, title) {
+        const card = document.createElement('div');
+        card.className = 'topic-review-card';
+        const qCount = (item.topic.questions || []).length;
+        card.innerHTML =
+            `<div class="topic-card-title">${escapeAttr(title)}</div>` +
+            `<div class="topic-card-meta">${qCount} câu hỏi</div>` +
+            `<div class="topic-card-actions"><button class="btn-card-action btn-card-start" type="button">Ôn tập</button></div>`;
+        card.querySelector('button').addEventListener('click', () => this._startTopicReview(idx));
+        return card;
+    }
+
     _renderTopicReviewList() {
         const { originalData } = store.getState();
         const container = $('topicReviewList');
+        if (!container) return;
         container.innerHTML = '';
-        originalData.topics.forEach((topic, idx) => {
-            const card = document.createElement('div');
-            card.className = 'topic-review-card';
-            card.innerHTML =
-                `<div class="topic-card-title">${escapeAttr(topic.title)}</div>` +
-                `<div class="topic-card-meta">${topic.questions.length} câu hỏi</div>` +
-                `<div class="topic-card-actions"><button class="btn-card-action btn-card-start" data-idx="${idx}">Ôn tập</button></div>`;
-            card.querySelector('button').addEventListener('click', () => this._startTopicReview(idx));
-            container.appendChild(card);
+
+        const leaves = listSelectableLeaves(originalData);
+        const leafIndex = new Map(
+            leaves.map((item, idx) => [`${item.ref.p}:${item.ref.c ?? ''}`, idx])
+        );
+        const hasGroups = (originalData.topics || []).some(isTopicParent);
+        container.className = hasGroups ? 'topic-review-list' : 'topic-grid-container';
+
+        (originalData.topics || []).forEach((topic, p) => {
+            if (isTopicParent(topic)) {
+                const group = document.createElement('div');
+                group.className = 'topic-review-group';
+
+                const groupTitle = document.createElement('div');
+                groupTitle.className = 'topic-review-group-title';
+                groupTitle.textContent = topic.title;
+                group.appendChild(groupTitle);
+
+                const grid = document.createElement('div');
+                grid.className = 'topic-grid-container';
+                topic.children.forEach((child, c) => {
+                    const idx = leafIndex.get(`${p}:${c}`);
+                    if (idx == null) return;
+                    grid.appendChild(this._createTopicReviewCard(leaves[idx], idx, child.title));
+                });
+                group.appendChild(grid);
+                container.appendChild(group);
+            } else if ((topic.questions?.length || 0) > 0) {
+                const idx = leafIndex.get(`${p}:`);
+                if (idx != null) {
+                    container.appendChild(
+                        this._createTopicReviewCard(leaves[idx], idx, topic.title)
+                    );
+                }
+            }
         });
     }
 
@@ -563,13 +604,14 @@ export class QuizController {
         const { originalData } = store.getState();
         const topicContainer = $('wrongTopicSelection');
         const topicList = $('wrongTopicList');
+        const leaves = listSelectableLeaves(originalData);
 
-        if (originalData.topics?.length > 1) {
+        if (leaves.length > 1) {
             topicContainer.style.display = 'block';
             let html =
                 '<label style="display:flex;align-items:center;margin-bottom:6px;font-weight:bold;cursor:pointer;"><input type="checkbox" id="wrongTopicAll" checked style="margin-right:8px;"> Chọn tất cả</label><hr style="border:0;border-top:1px solid #ddd;margin:8px 0;">';
-            originalData.topics.forEach((t, i) => {
-                html += `<label style="display:flex;align-items:center;margin-bottom:6px;cursor:pointer;"><input type="checkbox" class="wrong-topic-chk" value="${i}" checked style="margin-right:8px;"> ${t.title}</label>`;
+            leaves.forEach((item, i) => {
+                html += `<label style="display:flex;align-items:center;margin-bottom:6px;cursor:pointer;"><input type="checkbox" class="wrong-topic-chk" value="${i}" checked style="margin-right:8px;"> ${escapeAttr(item.label)}</label>`;
             });
             topicList.innerHTML = html;
 
@@ -591,15 +633,21 @@ export class QuizController {
         }
     }
 
-    _bindEvents() {
-        $('btnModeReview').addEventListener('click', () => this._startGeneralReview());
-        $('btnModeExam').addEventListener('click', () => this.showScreen('screenSetup'));
-        $('btnModeHistory').addEventListener('click', () => this._showExamHistory());
-        $('btnBackHomeFromHistory').addEventListener('click', () => this.showScreen('screenHome'));
-        $('btnBackHomeFromSetup').addEventListener('click', () => this.showScreen('screenHome'));
+    _bindClick(id, handler) {
+        const el = $(id);
+        if (el) el.addEventListener('click', handler);
+    }
 
-        $('btnModeReviewWrong').addEventListener('click', () => {
-            if (this.wrongHistoryService.getWrongCount() === 0) {
+    _bindEvents() {
+        this._bindClick('btnModeReview', () => this._startGeneralReview());
+        this._bindClick('btnModeExam', () => this.showScreen('screenSetup'));
+        this._bindClick('btnModeHistory', () => this._showExamHistory());
+        this._bindClick('btnBackHomeFromHistory', () => this.showScreen('screenHome'));
+        this._bindClick('btnBackHomeFromSetup', () => this.showScreen('screenHome'));
+
+        this._bindClick('btnModeReviewWrong', () => {
+            const count = this.wrongHistoryService?.getWrongCount() || 0;
+            if (count === 0) {
                 Toast.info(
                     'Chưa có câu sai nào. Hãy làm bài ôn tập hoặc thi thử trước — hệ thống sẽ tự ghi nhận các câu bạn trả lời sai.'
                 );
@@ -609,14 +657,14 @@ export class QuizController {
             this.showScreen('screenSetupWrong');
         });
 
-        $('btnBackHomeFromSetupWrong').addEventListener('click', () => this.showScreen('screenHome'));
-        $('btnModeTopicReview').addEventListener('click', () => {
+        this._bindClick('btnBackHomeFromSetupWrong', () => this.showScreen('screenHome'));
+        this._bindClick('btnModeTopicReview', () => {
             this._renderTopicReviewList();
             this.showScreen('screenTopicReview');
         });
-        $('btnBackHomeFromTopic').addEventListener('click', () => this.showScreen('screenHome'));
+        this._bindClick('btnBackHomeFromTopic', () => this.showScreen('screenHome'));
 
-        this.btnExitTop.addEventListener('click', () => ModalManager.open('modalConfirmExit'));
+        this.btnExitTop?.addEventListener('click', () => ModalManager.open('modalConfirmExit'));
         ModalManager.bindConfirm('modalConfirmExit', 'btnConfirmExit', 'btnCancelExit', () => {
             quizTimer.destroy();
             const state = store.getState();
@@ -632,7 +680,7 @@ export class QuizController {
             }
         });
 
-        $('btnStartExam').addEventListener('click', () => {
+        this._bindClick('btnStartExam', () => {
             const count = parseInt($('examQCount').value, 10);
             const timeM = parseInt($('examTime').value, 10);
             if (isNaN(count) || count < 1) return Toast.warning('Số lượng không hợp lệ');
@@ -650,7 +698,7 @@ export class QuizController {
             });
         });
 
-        $('btnStartWrongReview').addEventListener('click', () => {
+        this._bindClick('btnStartWrongReview', () => {
             const count = parseInt($('wrongQCount').value, 10);
             const minCount = parseInt($('wrongMinCount').value, 10);
             if (isNaN(count) || count < 1) return Toast.warning('Số lượng không hợp lệ');
@@ -658,7 +706,8 @@ export class QuizController {
 
             const { originalData } = store.getState();
             let selectedTopics = [];
-            if (originalData.topics?.length > 1) {
+            const leaves = listSelectableLeaves(originalData);
+            if (leaves.length > 1) {
                 document.querySelectorAll('.wrong-topic-chk:checked').forEach(chk => {
                     selectedTopics.push(parseInt(chk.value, 10));
                 });
@@ -686,29 +735,33 @@ export class QuizController {
             });
         });
 
-        this.btnPrev.onclick = () => {
+        if (this.btnPrev) {
+            this.btnPrev.onclick = () => {
             const { currentIndex } = store.getState();
             if (currentIndex > 0) {
                 store.setState({ currentIndex: currentIndex - 1 });
                 this.renderQuestion();
             }
-        };
+            };
+        }
 
-        this.btnNext.onclick = () => {
+        if (this.btnNext) {
+            this.btnNext.onclick = () => {
             const { currentIndex, totalCount } = store.getState();
             if (currentIndex < totalCount - 1) {
                 store.setState({ currentIndex: currentIndex + 1 });
                 this.renderQuestion();
             }
-        };
+            };
+        }
 
-        this.btnSubmitExam.onclick = () => this._promptSubmitExam();
+        if (this.btnSubmitExam) this.btnSubmitExam.onclick = () => this._promptSubmitExam();
         ModalManager.bindConfirm('modalConfirmSubmit', 'btnConfirmSubmit', 'btnCancelSubmit', () =>
             this.submitExam()
         );
 
-        $('tabKQ').onclick = () => this._switchResultTab('KQ');
-        $('tabPT').onclick = () => this._switchResultTab('PT');
+        this._bindClick('tabKQ', () => this._switchResultTab('KQ'));
+        this._bindClick('tabPT', () => this._switchResultTab('PT'));
 
         const filterMap = {
             fSai: FILTER_MODES.WRONG,
@@ -717,7 +770,9 @@ export class QuizController {
             fTatCa: FILTER_MODES.ALL
         };
         Object.entries(filterMap).forEach(([id, mode]) => {
-            $(id).onclick = e => {
+            const el = $(id);
+            if (!el) return;
+            el.onclick = e => {
                 document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
                 e.target.classList.add('active');
                 store.setState({ filterMode: mode });
@@ -725,7 +780,7 @@ export class QuizController {
             };
         });
 
-        $('btnLogout').addEventListener('click', () => {
+        this._bindClick('btnLogout', () => {
             ModalManager.confirm({
                 title: 'Đăng xuất',
                 message: 'Bạn có muốn đăng xuất?',
@@ -738,7 +793,7 @@ export class QuizController {
 
         if (auth.isAdmin()) {
             setVisible($('btnAdminLink'), true);
-            $('btnAdminLink').addEventListener('click', () => {
+            this._bindClick('btnAdminLink', () => {
                 window.location.href = ROUTES.ADMIN;
             });
         }

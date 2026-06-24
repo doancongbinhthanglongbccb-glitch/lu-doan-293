@@ -229,6 +229,27 @@
         
         /* TOPIC REVIEW STYLES */
         .btn-purple { background: #9b59b6; color: white; }
+        .topic-review-list {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            margin-top: 25px;
+            width: 100%;
+            text-align: left;
+        }
+        .topic-review-group-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: #1a5276;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-bottom: 12px;
+            padding-bottom: 6px;
+            border-bottom: 2px solid #dceef8;
+        }
+        .topic-review-group .topic-grid-container {
+            margin-top: 0;
+        }
         .topic-grid-container {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -559,6 +580,55 @@
             border-bottom: 1px solid var(--border-color);
         }
         .sidebar-header h3 { margin: 0; font-size: 16px; }
+        .sidebar-header-btns { display: flex; gap: 6px; }
+        .admin-topic-group {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            border-bottom: 1px solid #eee;
+        }
+        .admin-topic-parent {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 15px 6px;
+            font-weight: 700;
+            font-size: 13px;
+            color: #555;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+            cursor: pointer;
+        }
+        .admin-topic-parent:hover { background: #f8f9fa; }
+        .admin-topic-parent.active {
+            background: #fff3e0;
+            border-left: 3px solid var(--primary);
+        }
+        .btn-topic-add-child {
+            flex-shrink: 0;
+            width: 22px;
+            height: 22px;
+            padding: 0;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background: #fff;
+            color: var(--primary);
+            font-size: 15px;
+            line-height: 1;
+            cursor: pointer;
+        }
+        .btn-topic-add-child:hover {
+            background: #fff3e0;
+            border-color: var(--primary);
+        }
+        .admin-topic-item.child {
+            padding-left: 28px;
+            font-size: 13px;
+        }
+        .admin-topic-item.parent-only {
+            font-weight: 600;
+        }
         .admin-topic-list {
             list-style: none;
             margin: 0;
@@ -570,6 +640,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            gap: 6px;
             padding: 12px 15px;
             cursor: pointer;
             border-bottom: 1px solid #f0f0f0;

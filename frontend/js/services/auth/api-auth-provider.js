@@ -35,7 +35,7 @@ export class ApiAuthProvider extends AuthProvider {
      */
     async initUsers() {
         if (this._usersCache) return this._usersCache;
-        const { data } = await apiClient.get('/users');
+        const { data } = await apiClient.get('/users', { silent: true });
         this._usersCache = { users: pickUsers(data) || [] };
         userRepo.saveUsers(this._usersCache);
         return this._usersCache;

@@ -3,6 +3,7 @@ import { assignQuestionHash } from '../../utils/hash.js';
 import { assignAnswerLetters, nextQuestionId } from '../../core/grading.js';
 import { textToHtml, htmlToEditText } from './formatters.js';
 import { QUESTION_TYPES } from '../../config/constants.js';
+import { getLeafTopics } from '../../core/topic-tree.js';
 import { EXCEL_TEMPLATE_TOPICS } from '../../../../shared/constants/excel-template.js';
 
 /** Excel template downloads — paths relative to frontend root */
@@ -196,11 +197,19 @@ export function questionToRow(q) {
  */
 export function exportWorkbook(quizData) {
     const wb = XLSX.utils.book_new();
-    quizData.topics.forEach(topic => {
-        const rows = topic.questions.map(q => questionToRow(q));
-        const ws = XLSX.utils.json_to_sheet(rows);
-        const sheetName = topic.title.substring(0, 31);
-        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    (quizData.topics || []).forEach(topic => {
+        if (topic.children?.length) {
+            topic.children.forEach(child => {
+                const rows = (child.questions || []).map(q => questionToRow(q));
+                const ws = XLSX.utils.json_to_sheet(rows);
+                const sheetName = `${topic.title} - ${child.title}`.substring(0, 31);
+                XLSX.utils.book_append_sheet(wb, ws, sheetName);
+            });
+        } else {
+            const rows = (topic.questions || []).map(q => questionToRow(q));
+            const ws = XLSX.utils.json_to_sheet(rows);
+            XLSX.utils.book_append_sheet(wb, ws, topic.title.substring(0, 31));
+        }
     });
     XLSX.writeFile(wb, 'cbquiz_export_' + new Date().toISOString().slice(0, 10) + '.xlsx');
 }
@@ -213,20 +222,25 @@ export function exportWorkbook(quizData) {
 export function repairEssayQuestions(quizData) {
     let changed = false;
     (quizData.topics || []).forEach(topic => {
-        (topic.questions || []).forEach(q => {
-            if (q.type !== 'essayquestion' && q.type !== 'Fillintheblank') return;
-            const newContent = textToHtml(htmlToEditText(q.contentHtml));
-            if (newContent !== q.contentHtml) {
-                q.contentHtml = newContent;
-                assignQuestionHash(q);
-                changed = true;
-            }
-            (q.answers || []).forEach(a => {
-                const newHtml = textToHtml(htmlToEditText(a.html));
-                if (newHtml !== a.html) {
-                    a.html = newHtml;
+        const lists = topic.children?.length
+            ? topic.children.map(c => c.questions || [])
+            : [topic.questions || []];
+        lists.forEach(questions => {
+            questions.forEach(q => {
+                if (q.type !== 'essayquestion' && q.type !== 'Fillintheblank') return;
+                const newContent = textToHtml(htmlToEditText(q.contentHtml));
+                if (newContent !== q.contentHtml) {
+                    q.contentHtml = newContent;
+                    assignQuestionHash(q);
                     changed = true;
                 }
+                (q.answers || []).forEach(a => {
+                    const newHtml = textToHtml(htmlToEditText(a.html));
+                    if (newHtml !== a.html) {
+                        a.html = newHtml;
+                        changed = true;
+                    }
+                });
             });
         });
     });
