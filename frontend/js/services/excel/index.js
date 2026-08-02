@@ -94,8 +94,7 @@ export function parseTracNghiemRow(row) {
 
     return {
         contentHtml: textToHtml(question),
-        type:
-            correctCount > 1 ? QUESTION_TYPES.MULTIPLE_RESPONSE : QUESTION_TYPES.MULTIPLE_CHOICE,
+        type: QUESTION_TYPES.MULTIPLE_CHOICE,
         noShuffle: false,
         answers,
         isMul: correctCount > 1,

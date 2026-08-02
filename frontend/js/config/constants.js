@@ -54,13 +54,9 @@ export const QUESTION_TYPE_LABELS = {
     [QUESTION_TYPES.ESSAY]: 'Tự Luận'
 };
 
-/** Question types for admin select */
+/** Question types for admin (chỉ trắc nghiệm) */
 export const QUESTION_TYPE_OPTIONS = [
-    { value: QUESTION_TYPES.MULTIPLE_CHOICE, label: 'Trắc Nghiệm' },
-    { value: QUESTION_TYPES.MULTIPLE_RESPONSE, label: 'Nhiều Đáp Án' },
-    { value: QUESTION_TYPES.TRUE_FALSE, label: 'Đúng/Sai' },
-    { value: QUESTION_TYPES.FILL_BLANK, label: 'Điền Khuyết' },
-    { value: QUESTION_TYPES.ESSAY, label: 'Tự Luận' }
+    { value: QUESTION_TYPES.MULTIPLE_CHOICE, label: 'Trắc Nghiệm' }
 ];
 
 /** Wrong-answer review: correct streak needed to remove from wrong list */

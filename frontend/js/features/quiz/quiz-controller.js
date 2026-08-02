@@ -9,7 +9,6 @@ import {
     hasAnswer,
     emptyAnswerState,
     isMultiSelectType,
-    isTextInputType,
     countAllQuestions
 } from '../../core/grading.js';
 import { quizTimer } from '../../core/timer-service.js';
@@ -163,8 +162,6 @@ export class QuizController {
             this.renderQuestion();
         };
 
-        this.questionRenderer.onCheckReview = (q, index) => this._checkReviewAnswer(q, index);
-
         this.questionRenderer.onOptionClick = (ansIdx, isDoubt) => this._handleOptClick(ansIdx, isDoubt);
     }
 
@@ -235,6 +232,30 @@ export class QuizController {
             progressText: $('progressText'),
             percentText: $('percentText')
         });
+        this._updateSubmitButton();
+    }
+
+    /** Làm mờ nút nộp cho đến khi trả lời hết câu. */
+    _updateSubmitButton() {
+        const btn = this.btnSubmitExam;
+        if (!btn || btn.style.display === 'none') return;
+
+        const state = store.getState();
+        const total = state.totalCount || state.quizData?.questions?.length || 0;
+        if (!total) {
+            btn.disabled = true;
+            return;
+        }
+
+        let done = 0;
+        for (let i = 0; i < total; i++) {
+            if (hasAnswer(state.answers[i])) done++;
+        }
+        const ready = done === total;
+        btn.disabled = !ready;
+        btn.title = ready
+            ? ''
+            : `Còn ${total - done}/${total} câu chưa trả lời — làm hết để nộp`;
     }
 
     /** Render current question */
@@ -257,45 +278,6 @@ export class QuizController {
 
         this._updateGrid();
         queueTypeset($('qBox'));
-    }
-
-    /**
-     * @param {object} q
-     * @param {number} index
-     */
-    _checkReviewAnswer(q, index) {
-        const state = store.getState();
-        const answers = { ...state.answers };
-        if (!answers[index]) answers[index] = emptyAnswerState();
-        if (answers[index].isLocked) return;
-
-        const grade = gradeAnswer(q, answers[index]);
-        if (!grade.answered) {
-            Toast.warning(
-                isTextInputType(q.type)
-                    ? 'Vui lòng nhập câu trả lời trước khi nộp.'
-                    : 'Vui lòng chọn đáp án trước khi nộp.'
-            );
-            return;
-        }
-
-        answers[index].isLocked = true;
-        answers[index].isCorrect = grade.isCorrect;
-        store.setState({ answers });
-
-        this.wrongHistoryService.recordAnswer(
-            q,
-            grade.isCorrect && !answers[index].doubtful,
-            state.mode,
-            state.reviewSubMode
-        );
-        const historyState = this.wrongHistoryService.getState();
-        store.setState({
-            wrongHistory: historyState.wrongHistory,
-            correctHistory: historyState.correctHistory
-        });
-
-        this.renderQuestion();
     }
 
     /**
@@ -334,7 +316,7 @@ export class QuizController {
         this.renderQuestion();
     }
 
-    /** Submit exam and show results */
+    /** Submit exam/review and show results */
     submitExam() {
         quizTimer.destroy();
         const state = store.getState();
@@ -348,6 +330,7 @@ export class QuizController {
             if (grade.answered) {
                 if (!st) st = answers[i] = emptyAnswerState();
                 st.isCorrect = grade.isCorrect;
+                st.isLocked = true;
                 if (grade.isCorrect) scoreCount++;
                 this.wrongHistoryService.recordAnswer(
                     q,
@@ -356,7 +339,13 @@ export class QuizController {
                     state.reviewSubMode
                 );
             } else {
-                answers[i] = { selected: [], textValue: '', isCorrect: false };
+                answers[i] = {
+                    selected: [],
+                    textValue: '',
+                    doubtful: false,
+                    isLocked: true,
+                    isCorrect: false
+                };
                 this.wrongHistoryService.recordAnswer(q, false, state.mode, state.reviewSubMode);
             }
         });
@@ -396,7 +385,8 @@ export class QuizController {
 
         const msgEl = $('submitConfirmMessage');
         if (msgEl) {
-            msgEl.textContent = `Bạn đã trả lời đủ ${questions.length} câu. Xác nhận nộp bài?`;
+            const label = state.mode === QUIZ_MODES.EXAM ? 'nộp bài' : 'nộp đáp án';
+            msgEl.textContent = `Bạn đã trả lời đủ ${questions.length} câu. Xác nhận ${label}?`;
         }
         ModalManager.open('modalConfirmSubmit');
     }
@@ -565,6 +555,7 @@ export class QuizController {
     _startQuizSession({ mode, reviewSubMode, quizData, titleSuffix = '', showTimer = false, timerMinutes }) {
         quizTimer.destroy();
         const totalCount = quizData.questions.length;
+        const startTime = formatDateTime(new Date());
 
         store.setState({
             mode,
@@ -574,26 +565,47 @@ export class QuizController {
             currentIndex: 0,
             answers: {},
             timeTotalStr: showTimer ? `${timerMinutes} phút` : 'Không giới hạn',
-            timeStartStr: showTimer ? formatDateTime(new Date()) : store.getState().timeStartStr
+            timeStartStr: startTime,
+            timeEndStr: ''
         });
 
         this.quizMainTitle.textContent = quizData.title + titleSuffix;
-        setVisible(this.timerBox, showTimer, 'block');
-        setVisible(this.btnSubmitExam, showTimer);
+
+        const timerTitle = this.timerBox?.querySelector('.sidebar-box-title-text');
+        if (timerTitle) {
+            timerTitle.textContent = showTimer ? 'Thời gian còn lại' : 'Thời gian làm bài';
+        }
+        setVisible(this.timerBox, true, 'block');
+        setVisible(this.btnSubmitExam, true);
+        if (this.btnSubmitExam) {
+            const isExam = mode === QUIZ_MODES.EXAM;
+            this.btnSubmitExam.textContent = isExam ? 'Nộp bài' : 'Nộp đáp án';
+            this.btnSubmitExam.classList.toggle('btn-submit-review', !isExam);
+            this.btnSubmitExam.disabled = true;
+            this.btnSubmitExam.title = 'Làm hết các câu để nộp';
+        }
+
+        const updateTimerUI = ({ text, isDanger }) => {
+            if (this.timeLeftDisplay) {
+                this.timeLeftDisplay.textContent = text;
+                this.timeLeftDisplay.classList.toggle('danger', !!isDanger);
+            }
+        };
 
         if (showTimer && timerMinutes) {
             quizTimer.start(timerMinutes * 60, {
-                onUpdateUI: ({ text, isDanger }) => {
-                    if (this.timeLeftDisplay) {
-                        this.timeLeftDisplay.textContent = text;
-                        this.timeLeftDisplay.classList.toggle('danger', isDanger);
-                    }
-                },
+                onUpdateUI: updateTimerUI,
                 onExpire: () => {
                     Toast.warning('Đã hết thời gian làm bài! Hệ thống tự động thu bài.');
                     this.submitExam();
                 }
             });
+        } else {
+            quizTimer.startStopwatch({ onUpdateUI: updateTimerUI });
+            if (this.timeLeftDisplay) {
+                this.timeLeftDisplay.textContent = '00:00';
+                this.timeLeftDisplay.classList.remove('danger');
+            }
         }
 
         this.resetGame();
@@ -766,7 +778,6 @@ export class QuizController {
         const filterMap = {
             fSai: FILTER_MODES.WRONG,
             fDung: FILTER_MODES.CORRECT,
-            fChuaLam: FILTER_MODES.UNANSWERED,
             fTatCa: FILTER_MODES.ALL
         };
         Object.entries(filterMap).forEach(([id, mode]) => {

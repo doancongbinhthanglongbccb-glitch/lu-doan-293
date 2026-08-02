@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hệ thống ôn tập trắc nghiệm</title>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Noto+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/main.css">
     <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
 </head>
@@ -24,6 +24,7 @@
         </div>
     </header>
 
+    <main class="app-main">
     <!-- SCREEN: HOME -->
     <div id="screenHome" class="screen active">
         <div class="card-box" style="max-width: 480px; padding: 30px 25px;">
@@ -99,33 +100,37 @@
     </div>
 
     <!-- SCREEN: QUIZ -->
-    <div id="screenQuiz" class="screen">
+    <div id="screenQuiz" class="screen screen-quiz">
         <div class="layout-container">
-            <div class="sidebar-column">
-                <div style="text-align:center;margin-bottom:15px;">
-                    <img src="assets/logo.png" alt="Logo" style="width:80px;height:80px;border-radius:50%;object-fit:cover;background:white;padding:4px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+            <aside class="sidebar-column" aria-label="Điều hướng câu hỏi">
+                <div class="sidebar-brand">
+                    <img src="assets/logo.png" alt="Logo Đoàn Công binh Thăng Long" class="sidebar-logo">
                 </div>
                 <div class="sidebar-box" id="timerBox">
-                    <div class="sidebar-box-title">⏱ Thời Gian Còn Lại</div>
-                    <div class="sidebar-time" id="timeLeftDisplay">--:--</div>
+                    <div class="sidebar-box-title">
+                        <svg class="icon-inline" viewBox="0 0 24 24" aria-hidden="true" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                        <span class="sidebar-box-title-text">Thời gian làm bài</span>
+                    </div>
+                    <div class="sidebar-time" id="timeLeftDisplay">00:00</div>
                 </div>
-                <div style="display:none;">
+                <div class="quiz-progress-meta" aria-live="polite">
                     <span id="progressText">0/0</span>
+                    <span class="quiz-progress-sep" aria-hidden="true">·</span>
                     <span id="percentText">0%</span>
                 </div>
-                <div class="sidebar-box" style="flex:1;display:flex;flex-direction:column;overflow:hidden;padding:10px;">
+                <div class="sidebar-box sidebar-box-grid">
                     <div class="sidebar-box-title">Danh sách câu hỏi</div>
-                    <div class="grid-q" id="gridQ" style="max-height:40vh;overflow-y:auto;"></div>
+                    <div class="grid-q" id="gridQ"></div>
                 </div>
-            </div>
+            </aside>
             <div class="main-column">
-                <div class="exam-title" id="quizMainTitle" style="margin-bottom:20px;margin-top:0;">Hệ thống ôn tập trắc nghiệm</div>
+                <h1 class="exam-title" id="quizMainTitle">Hệ thống ôn tập trắc nghiệm</h1>
                 <div class="q-box" id="qBox"></div>
-                <div class="nav-footer">
-                    <button id="btnPrev" class="btn-nav">Quay lại</button>
-                    <div style="display:flex;gap:10px;">
-                        <button id="btnNext" class="btn-nav">Tiếp theo</button>
-                        <button id="btnSubmitExam" class="btn-nav btn-submit-exam" style="display:none;">Nộp Bài</button>
+                <div class="quiz-action-bar nav-footer" role="toolbar" aria-label="Điều khiển bài làm">
+                    <button id="btnPrev" class="btn-nav btn-nav-secondary" type="button">Quay lại</button>
+                    <div class="quiz-action-bar-right">
+                        <button id="btnNext" class="btn-nav btn-nav-secondary" type="button">Tiếp theo</button>
+                        <button id="btnSubmitExam" class="btn-nav btn-submit-exam" type="button" style="display:none;">Nộp bài</button>
                     </div>
                 </div>
             </div>
@@ -211,13 +216,13 @@
                 <div class="filters">
                     <button class="filter-btn" id="fSai">Sai(0)</button>
                     <button class="filter-btn" id="fDung">Đúng(0)</button>
-                    <button class="filter-btn" id="fChuaLam">Chưa làm(0)</button>
                     <button class="filter-btn active" id="fTatCa">Tất cả(0)</button>
                 </div>
                 <div id="reviewListContainer"></div>
             </div>
         </div>
     </div>
+    </main>
 
     <footer class="site-footer">Copyright @2026. Bản quyền doancongbinhthanglong.bccb@gmail.com</footer>
 

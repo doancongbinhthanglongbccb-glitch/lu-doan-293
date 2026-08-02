@@ -8,7 +8,7 @@ export class ResultRenderer {
      * Render result statistics.
      * @param {Object} params
      * @param {string} params.title
-     * @param {string} params.timeTotalStr
+     * @param {string} [params.timeTotalStr] - giới hạn làm bài (nếu có); subtitle dùng thời gian đã làm
      * @param {string} params.timeStartStr
      * @param {string} params.timeEndStr
      * @param {number} params.percent
@@ -17,7 +17,6 @@ export class ResultRenderer {
      */
     renderSummary({
         title,
-        timeTotalStr,
         timeStartStr,
         timeEndStr,
         percent,
@@ -30,7 +29,7 @@ export class ResultRenderer {
         };
 
         set('resMainTitle', title);
-        set('resSub1', `Điểm: ${scoreOutOf10}/10, Thời gian: ${timeTotalStr}`);
+        set('resSub1', `Điểm: ${scoreOutOf10}/10, Thời gian: ${formatElapsedTime(elapsedSec)}`);
         set('txtTimeStart', timeStartStr);
         set('txtTimeEnd', timeEndStr);
         set('valPercent', `${percent}%`);

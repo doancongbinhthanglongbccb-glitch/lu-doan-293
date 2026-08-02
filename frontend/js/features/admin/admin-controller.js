@@ -1,11 +1,10 @@
-import { APP_CONFIG, ROUTES } from '../../config/index.js';
+import { APP_CONFIG, ROUTES, QUESTION_TYPES } from '../../config/index.js';
 import { $ } from '../../utils/dom.js';
 import { htmlToText, escapeAttr } from '../../utils/html.js';
 import { clone } from '../../utils/array.js';
 import { assignQuestionHash } from '../../utils/hash.js';
 import {
     countAllQuestions,
-    getQuestionTypeLabel,
     nextQuestionId
 } from '../../core/grading.js';
 import * as quizRepo from '../../storage/quiz-repository.js';
@@ -32,7 +31,8 @@ import {
     getTopicDisplayTitle,
     topicQuestionCount,
     countLeafTopics,
-    countParentTopics
+    countParentTopics,
+    findTopicTitleConflict
 } from '../../core/topic-tree.js';
 
 /**
@@ -154,10 +154,11 @@ export class AdminController {
                 parentRow.className =
                     'admin-topic-parent' +
                     (this._isSameTopicRef(this.selectedTopicRef, { p, c: null }) ? ' active' : '');
-                parentRow.innerHTML =
-                    `<span class="topic-name">${escapeAttr(topic.title)}</span>` +
-                    '<button type="button" class="btn-topic-add-child" title="Thêm môn con">+</button>' +
-                    `<span class="topic-count">${topicQuestionCount(topic)}</span>`;
+                parentRow.innerHTML = this._topicRowHtml({
+                    title: topic.title,
+                    count: topicQuestionCount(topic),
+                    showAddChild: true
+                });
                 parentRow.onclick = () => {
                     this.selectedTopicRef = { p, c: null };
                     this.renderTopicList();
@@ -173,9 +174,11 @@ export class AdminController {
                     li.className =
                         'admin-topic-item child' +
                         (this._isSameTopicRef(this.selectedTopicRef, { p, c }) ? ' active' : '');
-                    li.innerHTML =
-                        `<span class="topic-name">${escapeAttr(child.title)}</span>` +
-                        `<span class="topic-count">${(child.questions || []).length}</span>`;
+                    li.innerHTML = this._topicRowHtml({
+                        title: child.title,
+                        count: (child.questions || []).length,
+                        showAddChild: false
+                    });
                     li.onclick = () => {
                         this.selectedTopicRef = { p, c };
                         this.renderTopicList();
@@ -190,10 +193,11 @@ export class AdminController {
                 li.className =
                     'admin-topic-item parent-only' +
                     (this._isSameTopicRef(this.selectedTopicRef, { p, c: null }) ? ' active' : '');
-                li.innerHTML =
-                    `<span class="topic-name">${escapeAttr(topic.title)}</span>` +
-                    '<button type="button" class="btn-topic-add-child" title="Thêm môn con">+</button>' +
-                    `<span class="topic-count">${(topic.questions || []).length}</span>`;
+                li.innerHTML = this._topicRowHtml({
+                    title: topic.title,
+                    count: (topic.questions || []).length,
+                    showAddChild: true
+                });
                 li.onclick = () => {
                     this.selectedTopicRef = { p, c: null };
                     this.renderTopicList();
@@ -203,6 +207,23 @@ export class AdminController {
                 list.appendChild(li);
             }
         });
+    }
+
+    /**
+     * @param {Object} opts
+     * @param {string} opts.title
+     * @param {number} opts.count
+     * @param {boolean} opts.showAddChild
+     * @returns {string}
+     */
+    _topicRowHtml({ title, count, showAddChild }) {
+        return (
+            `<span class="topic-name" title="${escapeAttr(title)}">${escapeAttr(title)}</span>` +
+            (showAddChild
+                ? '<button type="button" class="btn-topic-add-child" title="Thêm môn con">+</button>'
+                : '') +
+            `<span class="topic-count" title="Số câu hỏi">${count}</span>`
+        );
     }
 
     renderQuestionList() {
@@ -217,14 +238,14 @@ export class AdminController {
         if (isParentGroup) {
             $('questionCountBadge').textContent = '0 câu';
             $('questionTableBody').innerHTML =
-                '<tr><td colspan="5" class="empty-cell">Nhóm này đã có môn con — chọn một môn con bên trái để quản lý câu hỏi.</td></tr>';
+                '<tr><td colspan="4" class="empty-cell">Nhóm này đã có môn con — chọn một môn con bên trái để quản lý câu hỏi.</td></tr>';
             return;
         }
 
         if (!topic) {
             $('questionCountBadge').textContent = '0 câu';
             $('questionTableBody').innerHTML =
-                '<tr><td colspan="5" class="empty-cell">Chưa có dữ liệu chủ đề.</td></tr>';
+                '<tr><td colspan="4" class="empty-cell">Chưa có dữ liệu chủ đề.</td></tr>';
             return;
         }
 
@@ -239,9 +260,8 @@ export class AdminController {
             const preview = htmlToText(q.contentHtml).substring(0, 80);
             const correctLetters = q.answers.filter(a => a.isCorrect).map(a => a.letter).join(', ');
             tr.innerHTML =
-                `<td>${q.id || '—'}</td>` +
+                `<td>${idx + 1}</td>` +
                 `<td class="q-preview">${escapeAttr(preview)}${preview.length >= 80 ? '...' : ''}</td>` +
-                `<td>${getQuestionTypeLabel(q.type)}</td>` +
                 `<td>${correctLetters}</td>` +
                 '<td class="actions-cell">' +
                 `<button class="btn-sm btn-edit" data-idx="${idx}">Sửa</button>` +
@@ -322,6 +342,12 @@ export class AdminController {
         const ref = modal.dataset.ref ? JSON.parse(modal.dataset.ref) : null;
 
         if (mode === 'add-parent') {
+            const conflict = findTopicTitleConflict(this.quizData, title, { scope: 'root' });
+            if (conflict) {
+                return Toast.error(
+                    `Đã có chủ đề trùng tên: "${conflict.title}". Tên trùng không phân biệt hoa/thường và các loại gạch (-, —, –). Hãy đặt tên khác.`
+                );
+            }
             this.quizData.topics.push({ title, questions: [] });
             this.selectedTopicRef = { p: this.quizData.topics.length - 1, c: null };
         } else if (mode === 'add-child') {
@@ -342,9 +368,31 @@ export class AdminController {
                 delete parent.questions;
             }
             if (!parent.children) parent.children = [];
+
+            const conflict = findTopicTitleConflict(this.quizData, title, {
+                scope: 'children',
+                parentIndex: p
+            });
+            if (conflict) {
+                return Toast.error(
+                    `Trong nhóm "${parent.title}" đã có môn con trùng tên: "${conflict.title}". Tên trùng không phân biệt hoa/thường và các loại gạch (-, —, –). Hãy đặt tên khác.`
+                );
+            }
+
             parent.children.push({ title, questions: [] });
             this.selectedTopicRef = { p, c: parent.children.length - 1 };
         } else if (mode === 'edit' && ref) {
+            const isChild = ref.c != null;
+            const conflict = findTopicTitleConflict(this.quizData, title, {
+                scope: isChild ? 'children' : 'root',
+                parentIndex: isChild ? ref.p : null,
+                excludeRef: ref
+            });
+            if (conflict) {
+                return Toast.error(
+                    `Tên bị trùng với "${conflict.title}". Tên trùng không phân biệt hoa/thường và các loại gạch (-, —, –). Hãy đặt tên khác.`
+                );
+            }
             const topic = resolveTopicRef(this.quizData, ref);
             if (topic) topic.title = title;
         }
@@ -408,8 +456,7 @@ export class AdminController {
     }
 
     isEssayMode() {
-        const t = $('qTypeSelect').value;
-        return t === 'essayquestion' || t === 'Fillintheblank';
+        return false;
     }
 
     readAnswersFromRows() {
@@ -486,7 +533,6 @@ export class AdminController {
         $('questionModalTitle').textContent = qIdx >= 0 ? 'Sửa câu hỏi' : 'Thêm câu hỏi';
         $('qIdInput').value = q ? q.id || '' : nextQuestionId(this.quizData);
         $('qContentInput').value = q ? htmlToEditText(q.contentHtml) : '';
-        $('qTypeSelect').value = q ? q.type : 'multiplechoice';
         $('qNoShuffle').checked = q ? !!q.noShuffle : false;
         this.updateAnswersLabel();
         this.buildAnswerRows(q ? q.answers : null);
@@ -496,9 +542,7 @@ export class AdminController {
     updateAnswersLabel() {
         const label = $('answersLabel');
         if (!label) return;
-        label.textContent = this.isEssayMode()
-            ? 'Đáp án mẫu (Enter để xuống dòng như Excel)'
-            : 'Đáp án (tick ✓ = đáp án đúng)';
+        label.textContent = 'Đáp án (tick ✓ = đáp án đúng)';
     }
 
     collectQuestionFromForm() {
@@ -508,32 +552,24 @@ export class AdminController {
             return null;
         }
 
-        const type = $('qTypeSelect').value;
-        let answers = this.readAnswersFromRows();
+        const answers = this.readAnswersFromRows();
 
-        if (type === 'essayquestion' || type === 'Fillintheblank') {
-            if (!answers.length) {
-                Toast.warning('Vui lòng nhập đáp án mẫu.');
-                return null;
-            }
-            answers = [{ letter: 'A', html: answers[0].html, isCorrect: true }];
-        } else {
-            if (answers.length < 2) {
-                Toast.warning('Cần ít nhất 2 đáp án.');
-                return null;
-            }
-            if (!answers.some(a => a.isCorrect)) {
-                Toast.warning('Chọn ít nhất một đáp án đúng.');
-                return null;
-            }
+        if (answers.length < 2) {
+            Toast.warning('Cần ít nhất 2 đáp án.');
+            return null;
+        }
+        if (!answers.some(a => a.isCorrect)) {
+            Toast.warning('Chọn ít nhất một đáp án đúng.');
+            return null;
         }
 
         const q = {
             id: parseInt($('qIdInput').value, 10) || nextQuestionId(this.quizData),
             contentHtml: textToHtml(content),
-            type,
+            type: QUESTION_TYPES.MULTIPLE_CHOICE,
             noShuffle: $('qNoShuffle').checked,
-            answers
+            answers,
+            isMul: answers.filter(a => a.isCorrect).length > 1
         };
         assignQuestionHash(q);
         return q;
@@ -579,14 +615,20 @@ export class AdminController {
 
                 if (!questions.length) {
                     return Toast.error(
-                        'Không đọc được câu hỏi nào.\n\nKiểm tra định dạng:\n• Trắc nghiệm: Câu hỏi | Phương án | Đáp án đúng\n• Tự luận: Câu hỏi | Câu trả lời'
+                        'Không đọc được câu hỏi nào.\n\nKiểm tra định dạng:\n• Trắc nghiệm: Câu hỏi | Phương án | Đáp án đúng'
                     );
                 }
 
-                const mcCount = questions.filter(q => q.type === 'multiplechoice').length;
-                const essayCount = questions.filter(
-                    q => q.type === 'essayquestion' || q.type === 'Fillintheblank'
-                ).length;
+                const mcQuestions = questions.filter(
+                    q => q.type !== 'essayquestion' && q.type !== 'Fillintheblank'
+                );
+                if (!mcQuestions.length) {
+                    return Toast.error(
+                        'File chỉ có câu tự luận. Hệ thống hiện chỉ hỗ trợ trắc nghiệm.'
+                    );
+                }
+
+                const skippedEssay = questions.length - mcQuestions.length;
 
                 const currentTopic = this._getSelectedTopic();
                 if (!currentTopic) {
@@ -599,16 +641,17 @@ export class AdminController {
                     return Toast.error('Chọn chủ đề để import.');
                 }
 
-                const preview = questions
+                const preview = mcQuestions
                     .slice(0, 2)
                     .map((q, i) => `${i + 1}. ${htmlToText(q.contentHtml).substring(0, 60)}`)
                     .join('\n');
 
                 const confirmMsg =
-                    `Import ${questions.length} câu vào chủ đề "${currentTopic.title}"?\n\n` +
-                    `• Trắc nghiệm: ${mcCount}\n` +
-                    `• Tự luận: ${essayCount}\n\n` +
-                    `Xem trước:\n${preview}${questions.length > 2 ? '\n...' : ''}` +
+                    `Import ${mcQuestions.length} câu trắc nghiệm vào chủ đề "${currentTopic.title}"?\n\n` +
+                    (skippedEssay
+                        ? `• Đã bỏ qua ${skippedEssay} câu tự luận\n\n`
+                        : '') +
+                    `Xem trước:\n${preview}${mcQuestions.length > 2 ? '\n...' : ''}` +
                     (warnings.length
                         ? `\n\n⚠ ${warnings.length} cảnh báo (đáp án không khớp):\n${warnings.slice(0, 3).join('\n')}${warnings.length > 3 ? '\n...' : ''}`
                         : '');
@@ -617,7 +660,7 @@ export class AdminController {
                     title: 'Xác nhận Import',
                     message: confirmMsg,
                     onConfirm: async () => {
-                        showLoading(`Đang import ${questions.length} câu hỏi...`);
+                        showLoading(`Đang import ${mcQuestions.length} câu hỏi...`);
 
                         try {
                             const topicId =
@@ -629,13 +672,13 @@ export class AdminController {
 
                             const { data } = await apiClient.post(
                                 `/quiz/topics/${topicId}/import`,
-                                { questions },
+                                { questions: mcQuestions },
                                 { silent: true }
                             );
                             const result = unwrapPayload(data);
 
                             Toast.success(
-                                `Import thành công ${result.added ?? questions.length} câu hỏi!`
+                                `Import thành công ${result.added ?? mcQuestions.length} câu hỏi!`
                             );
 
                             await this._loadData();
@@ -683,14 +726,6 @@ export class AdminController {
         this._bindClick('btnAddQuestion', () => this.openQuestionModal(-1));
         this._bindClick('btnSaveQuestion', () => this.saveQuestion());
         this._bindClick('btnCancelQuestion', () => ModalManager.close('questionModal'));
-        const qTypeSelect = $('qTypeSelect');
-        if (qTypeSelect) {
-            qTypeSelect.onchange = () => {
-                this.updateAnswersLabel();
-                const existing = this.readAnswersFromRows();
-                this.buildAnswerRows(existing.length ? existing : null);
-            };
-        }
         this._bindClick('btnAddAnswer', () =>
             this.addAnswerRow({ html: '', isCorrect: false }, $('answerRows').children.length)
         );
@@ -742,7 +777,9 @@ export class AdminController {
 
     switchSection(section) {
         document.querySelectorAll('.admin-section-btn').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.section === section);
+            const active = btn.dataset.section === section;
+            btn.classList.toggle('active', active);
+            btn.setAttribute('aria-selected', active ? 'true' : 'false');
         });
         $('panelQuestions').classList.toggle('active', section === 'questions');
         $('panelUsers').classList.toggle('active', section === 'users');
@@ -768,9 +805,20 @@ export class AdminController {
 
     updateUserTabCounts() {
         const users = auth.getUsers();
-        $('pendingCount').textContent = users.filter(u => u.status === 'pending').length;
-        $('rejectedCount').textContent = users.filter(u => u.status === 'rejected').length;
-        $('approvedCount').textContent = users.filter(u => u.status === 'approved').length;
+        const pending = users.filter(u => u.status === 'pending').length;
+        const rejected = users.filter(u => u.status === 'rejected').length;
+        const approved = users.filter(u => u.status === 'approved').length;
+
+        const setText = (id, value) => {
+            const el = $(id);
+            if (el) el.textContent = String(value);
+        };
+        setText('pendingCount', pending);
+        setText('rejectedCount', rejected);
+        setText('approvedCount', approved);
+        setText('statUserPending', pending);
+        setText('statUserRejected', rejected);
+        setText('statUserApproved', approved);
     }
 
     statusBadgeClass(status) {
@@ -972,6 +1020,11 @@ export class AdminController {
         const emptyMessage = this.historySearchQuery
             ? 'Không tìm thấy lịch sử thi phù hợp.'
             : 'Chưa có lịch sử thi nào trong hệ thống.';
-        renderAdminHistoryTable($('historyTableBody'), this.historyRecords, emptyMessage);
+        const records = this.historyRecords || [];
+        const countEl = $('statHistoryCount');
+        const shownEl = $('statHistoryShown');
+        if (countEl) countEl.textContent = String(records.length);
+        if (shownEl) shownEl.textContent = String(records.length);
+        renderAdminHistoryTable($('historyTableBody'), records, emptyMessage);
     }
 }

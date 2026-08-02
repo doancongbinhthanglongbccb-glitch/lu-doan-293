@@ -96,6 +96,70 @@ export function getTopicDisplayTitle(data, ref) {
 }
 
 /**
+ * Chuẩn hóa tên chủ đề để so trùng:
+ * - không phân biệt hoa/thường
+ * - gạch ngang các loại (—, –, −, -…) coi như nhau
+ * - khoảng trắng quanh gạch bị bỏ qua
+ * - gạch và khoảng trắng đều là cùng một dấu phân cách (vd. "Quân sự" ≡ "Quân-sự" ≡ "Quân - Sự")
+ * @param {string} title
+ * @returns {string}
+ */
+export function normalizeTopicTitleKey(title) {
+    return String(title || '')
+        .normalize('NFC')
+        .toLowerCase()
+        .trim()
+        // Mọi loại gạch + khoảng trắng → một khoảng trắng duy nhất
+        .replace(/[\u2010-\u2015\u2212\uFE58\uFE63\uFF0D\u30FC\-–—―\s]+/g, ' ')
+        .trim();
+}
+
+/**
+ * Tìm chủ đề trùng tên (theo normalizeTopicTitleKey) trong cùng phạm vi anh em.
+ * @param {object} data
+ * @param {string} title
+ * @param {Object} [options]
+ * @param {'root'|'children'} [options.scope='root']
+ * @param {number} [options.parentIndex] - bắt buộc khi scope=children
+ * @param {{ p: number, c: number|null }|null} [options.excludeRef] - bỏ qua khi sửa
+ * @returns {{ title: string, ref: { p: number, c: number|null } }|null}
+ */
+export function findTopicTitleConflict(data, title, options = {}) {
+    const key = normalizeTopicTitleKey(title);
+    if (!key) return null;
+
+    const { scope = 'root', parentIndex = null, excludeRef = null } = options;
+    const topics = data?.topics || [];
+
+    const isExcluded = (p, c) =>
+        excludeRef &&
+        excludeRef.p === p &&
+        (excludeRef.c ?? null) === (c ?? null);
+
+    if (scope === 'children') {
+        const parent = topics[parentIndex];
+        if (!parent?.children) return null;
+        for (let c = 0; c < parent.children.length; c++) {
+            if (isExcluded(parentIndex, c)) continue;
+            const child = parent.children[c];
+            if (normalizeTopicTitleKey(child.title) === key) {
+                return { title: child.title, ref: { p: parentIndex, c } };
+            }
+        }
+        return null;
+    }
+
+    for (let p = 0; p < topics.length; p++) {
+        if (isExcluded(p, null)) continue;
+        const topic = topics[p];
+        if (normalizeTopicTitleKey(topic.title) === key) {
+            return { title: topic.title, ref: { p, c: null } };
+        }
+    }
+    return null;
+}
+
+/**
  * @param {object} topic
  * @returns {number}
  */

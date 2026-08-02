@@ -2,7 +2,6 @@ import { QUIZ_MODES, LONG_PRESS_MS } from '../../config/index.js';
 import { escapeAttr } from '../../utils/html.js';
 import { sanitizeRichHtml } from '../../utils/sanitize-html.js';
 import {
-    getQuestionTypeLabel,
     isTextInputType,
     emptyAnswerState
 } from '../../core/grading.js';
@@ -23,8 +22,6 @@ export class QuestionRenderer {
         this.onTextInput = null;
         /** @type {Function|null} */
         this.onToggleDoubt = null;
-        /** @type {Function|null} */
-        this.onCheckReview = null;
     }
 
     /**
@@ -39,17 +36,15 @@ export class QuestionRenderer {
     render({ question, index, totalCount, answerState, mode }) {
         const q = question;
         const ansState = answerState;
-        const typeText = getQuestionTypeLabel(q.type);
 
         let html =
             '<div class="q-header">' +
-            '<div class="q-badge-wrap" style="align-items:center;">' +
-            '<div style="font-weight:bold;font-size:15px;">Câu:</div>' +
-            `<div class="q-badge-num">${index + 1}/${totalCount}</div>` +
-            `<div class="q-badge-type">${typeText}</div>` +
+            '<div class="q-badge-wrap">' +
+            '<span class="q-badge-label">Câu</span>' +
+            `<span class="q-badge-num">${index + 1}/${totalCount}</span>` +
             '</div>' +
-            `<div class="q-content">${sanitizeRichHtml(q.contentHtml)}${q.isMul && q.type !== 'Multipleresponse' ? '<i>(Nhiều đáp án)</i>' : ''}</div>` +
-            '<div style="clear:both;"></div></div><div class="options-list">';
+            `<div class="q-content">${sanitizeRichHtml(q.contentHtml)}${q.isMul && q.type !== 'Multipleresponse' ? '<span class="q-mul-hint">(Nhiều đáp án)</span>' : ''}</div>` +
+            '</div><div class="options-list">';
 
         if (isTextInputType(q.type)) {
             html += this._renderTextInput(q, index, ansState, mode);
@@ -100,8 +95,8 @@ export class QuestionRenderer {
      */
     _renderOptions(q, ansState, mode) {
         let html = '';
-        const radioStyle = q.type === 'Multipleresponse' ? 'border-radius:4px;' : 'border-radius:50%;';
-        const radioInnerStyle = q.type === 'Multipleresponse' ? 'border-radius:2px;' : 'border-radius:50%;';
+        const isMulti = q.type === 'Multipleresponse';
+        const shapeClass = isMulti ? 'opt-radio--square' : 'opt-radio--circle';
 
         q.answers.forEach((ans, idx) => {
             const isSel = ansState?.selected.includes(idx);
@@ -112,8 +107,8 @@ export class QuestionRenderer {
             }
             html +=
                 `<div class="${c}" data-idx="${idx}" role="button" tabindex="0" aria-pressed="${isSel}">` +
-                `<div class="opt-radio" style="${radioStyle}"><div class="opt-radio-inner" style="${radioInnerStyle}"></div></div>` +
-                `<div class="opt-letter">${ans.letter}.</div>` +
+                `<div class="opt-radio ${shapeClass}" aria-hidden="true"><div class="opt-radio-inner"></div></div>` +
+                `<span class="opt-letter">${ans.letter}</span>` +
                 `<div class="q-content">${sanitizeRichHtml(ans.html)}</div></div>`;
         });
         return html;
@@ -125,25 +120,28 @@ export class QuestionRenderer {
      * @returns {string}
      */
     _renderActionBar(mode, ansState) {
-        let html = '<div style="margin-top:15px;display:flex;justify-content:space-between;align-items:center;">';
-
         if (mode === QUIZ_MODES.EXAM) {
             const isDoubt = ansState?.doubtful;
-            const btnColor = isDoubt ? 'var(--primary)' : '#ccc';
+            const btnClass = isDoubt ? 'btn-flag is-active' : 'btn-flag';
             const btnText = isDoubt ? 'Đã đánh dấu nghi ngờ' : 'Đánh dấu nghi ngờ';
-            html += `<button id="btnToggleDoubt" type="button" style="padding:8px 15px;font-size:14px;border:1px solid ${btnColor};border-radius:5px;background:${isDoubt ? 'var(--primary)' : 'transparent'};color:${isDoubt ? 'white' : '#666'};cursor:pointer;">&#9873; ${btnText}</button>`;
-        } else {
-            html += '<div></div>';
+            return (
+                '<div class="q-inline-actions">' +
+                `<button id="btnToggleDoubt" type="button" class="${btnClass}" aria-pressed="${isDoubt}">` +
+                '<svg class="icon-inline" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="currentColor"><path d="M5 3v18h2V13h7.2l.8 1.2H21V4h-6.2L14 2.8H7V3H5z"/></svg> ' +
+                `${btnText}</button></div>`
+            );
         }
 
-        if (mode === QUIZ_MODES.REVIEW && (!ansState || !ansState.isLocked)) {
-            html +=
-                '<button id="btnCheckReview" type="button" style="padding:10px 20px;font-size:16px;border:none;border-radius:5px;background:var(--blue-accent);color:white;cursor:pointer;">Nộp đáp án</button>';
-        } else if (mode === QUIZ_MODES.REVIEW && ansState?.isLocked) {
-            html += `<span style="font-size:14px;color:#666;font-weight:500;">${ansState.isCorrect ? '✔ Chính xác' : '✘ Chưa đúng'}</span>`;
+        if (mode === QUIZ_MODES.REVIEW && ansState?.isLocked) {
+            const ok = ansState.isCorrect;
+            return (
+                '<div class="q-inline-actions">' +
+                `<span class="q-result-badge ${ok ? 'is-correct' : 'is-wrong'}" role="status">` +
+                `${ok ? 'Chính xác' : 'Chưa đúng'}</span></div>`
+            );
         }
-        html += '</div>';
-        return html;
+
+        return '';
     }
 
   /**
@@ -162,9 +160,6 @@ export class QuestionRenderer {
 
         const btnDoubt = document.getElementById('btnToggleDoubt');
         if (btnDoubt) btnDoubt.onclick = () => this.onToggleDoubt?.(index);
-
-        const btnCheck = document.getElementById('btnCheckReview');
-        if (btnCheck) btnCheck.onclick = () => this.onCheckReview?.(q, index);
 
         this.container.querySelectorAll('.opt-item').forEach(el => {
             const idx = parseInt(el.getAttribute('data-idx'), 10);

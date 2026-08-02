@@ -88,7 +88,7 @@ export class TimerService {
      * @returns {string}
      */
     formatRemaining() {
-        const rem = Math.max(0, this._remaining);
+        const rem = Number.isFinite(this._remaining) ? Math.max(0, this._remaining) : 0;
         const m = Math.floor(rem / 60)
             .toString()
             .padStart(2, '0');
@@ -98,7 +98,66 @@ export class TimerService {
 
     /** Whether remaining time is in danger zone */
     isDanger() {
-        return this._remaining <= TIMER_DANGER_SECONDS && this._remaining > 0;
+        return (
+            Number.isFinite(this._remaining) &&
+            this._remaining <= TIMER_DANGER_SECONDS &&
+            this._remaining > 0
+        );
+    }
+
+    /**
+     * Start count-up stopwatch (no time limit).
+     * @param {Object} callbacks
+     * @param {Function} [callbacks.onTick]
+     * @param {Function} [callbacks.onUpdateUI]
+     */
+    startStopwatch({ onTick, onUpdateUI } = {}) {
+        this.stop();
+        this._remaining = Infinity;
+        this._elapsed = 0;
+        this._isPaused = false;
+        this._onTick = onTick;
+        this._onExpire = null;
+        this._onUpdateUI = onUpdateUI;
+
+        this._intervalId = setInterval(() => this._tickStopwatch(), 1000);
+        this._updateStopwatchDisplay();
+    }
+
+    /**
+     * Format elapsed time as MM:SS (or H:MM:SS if >= 1h).
+     * @returns {string}
+     */
+    formatElapsed() {
+        const el = Math.max(0, this._elapsed);
+        const h = Math.floor(el / 3600);
+        const m = Math.floor((el % 3600) / 60)
+            .toString()
+            .padStart(2, '0');
+        const s = (el % 60).toString().padStart(2, '0');
+        return h > 0 ? `${h}:${m}:${s}` : `${m}:${s}`;
+    }
+
+    _tickStopwatch() {
+        this._elapsed++;
+        if (this._onTick) {
+            this._onTick({ remaining: null, elapsed: this._elapsed });
+        }
+        eventBus.emit(EVENTS.TIMER_TICK, {
+            remaining: null,
+            elapsed: this._elapsed
+        });
+        this._updateStopwatchDisplay();
+    }
+
+    _updateStopwatchDisplay() {
+        if (this._onUpdateUI) {
+            this._onUpdateUI({
+                text: this.formatElapsed(),
+                isDanger: false,
+                isStopwatch: true
+            });
+        }
     }
 
     _tick() {
@@ -126,7 +185,8 @@ export class TimerService {
         if (this._onUpdateUI) {
             this._onUpdateUI({
                 text: this.formatRemaining(),
-                isDanger: this.isDanger()
+                isDanger: this.isDanger(),
+                isStopwatch: false
             });
         }
     }

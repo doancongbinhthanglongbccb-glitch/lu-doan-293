@@ -26,5 +26,5 @@ export const EXCEL_TEMPLATE_TOPICS = [
     { label: 'Kỹ thuật', fileName: 'Kỹ thuật.xlsx' }
 ];
 
-/** Mỗi file mẫu gồm 1 dòng trắc nghiệm + 1 dòng tự luận */
-export const EXCEL_TEMPLATE_SAMPLE_ROWS = [EXCEL_SAMPLE_MC_ROW, EXCEL_SAMPLE_ESSAY_ROW];
+/** Mỗi file mẫu gồm 1 dòng trắc nghiệm */
+export const EXCEL_TEMPLATE_SAMPLE_ROWS = [EXCEL_SAMPLE_MC_ROW];

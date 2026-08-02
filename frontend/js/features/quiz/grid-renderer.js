@@ -67,9 +67,16 @@ export class GridRenderer {
             if (!el) continue;
             el.className = 'grid-item';
             const ans = this.answers[i];
+            const answered = hasAnswer(ans);
             if (ans?.doubtful) el.classList.add('doubt');
-            else if (hasAnswer(ans)) el.classList.add('done');
+            else if (answered) el.classList.add('done');
             if (i === this.currentIndex) el.classList.add('current');
+            el.setAttribute('aria-current', i === this.currentIndex ? 'true' : 'false');
+            let stateLabel = 'chưa làm';
+            if (ans?.doubtful) stateLabel = 'nghi ngờ';
+            else if (answered) stateLabel = 'đã trả lời';
+            if (i === this.currentIndex) stateLabel = `đang làm, ${stateLabel}`;
+            el.setAttribute('aria-label', `Câu ${i + 1}, ${stateLabel}`);
         }
 
         if (progressEls) {
@@ -99,6 +106,7 @@ export class GridRenderer {
         div.setAttribute('role', 'button');
         div.setAttribute('tabindex', '0');
         div.setAttribute('aria-label', `Câu ${index + 1}`);
+        div.setAttribute('aria-current', 'false');
         div.onclick = () => this.onNavigate?.(index);
         div.onkeydown = e => {
             if (e.key === 'Enter' || e.key === ' ') {

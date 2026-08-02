@@ -1,27 +1,59 @@
 :root {
-    --primary: #ff8c00;
-    --bg-color: #f5f6fa;
-    --text-main: #333;
-    --border-color: #e2e8f0;
-    --blue-accent: #3498db;
-    --green-accent: #2ecc71;
-    --red-accent: #e74c3c;
+    /* Brand — Cam + Xanh quân sự (Design System) */
+    --primary: #e85d04;
+    --primary-hover: #d35400;
+    --military-blue: #1b3a5f;
+    --blue-accent: #2563eb;
+    --blue-soft: #eff6ff;
+    --bg-color: #f0f4f8;
+    --text-main: #0f172a;
+    --text-muted: #475569;
+    --border-color: #cbd5e1;
+    --green-accent: #15803d;
+    --green-soft: #dcfce7;
+    --red-accent: #dc2626;
+    --warning-accent: #0284c7;
+    --warning-soft: #e0f2fe;
     --card-bg: #ffffff;
     --header-text: #ffffff;
-    --shadow: rgba(0, 0, 0, 0.05);
+    --shadow: rgba(15, 23, 42, 0.08);
+    --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.08);
+    --shadow-md: 0 4px 14px rgba(15, 23, 42, 0.12);
+    --shadow-lg: 0 12px 28px rgba(15, 23, 42, 0.16);
+    --shadow-focus: 0 0 0 3px rgba(37, 99, 235, 0.35);
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --font-heading: 'Be Vietnam Pro', 'Noto Sans', sans-serif;
+    --font-body: 'Noto Sans', 'Be Vietnam Pro', sans-serif;
+    --space-xs: 4px;
+    --space-sm: 8px;
+    --space-md: 16px;
+    --space-lg: 24px;
+    --space-xl: 32px;
 }
 
 [data-theme='dark'] {
-    --primary: #e67e22;
+    --primary: #f97316;
+    --primary-hover: #ea580c;
+    --military-blue: #93c5fd;
+    --blue-accent: #60a5fa;
+    --blue-soft: #1e293b;
     --bg-color: #1a1d23;
     --text-main: #e8eaed;
+    --text-muted: #94a3b8;
     --border-color: #3d4450;
-    --blue-accent: #5dade2;
-    --green-accent: #58d68d;
-    --red-accent: #ec7063;
+    --green-accent: #4ade80;
+    --green-soft: #14532d;
+    --red-accent: #f87171;
+    --warning-accent: #38bdf8;
+    --warning-soft: #0c4a6e;
     --card-bg: #252830;
     --header-text: #ffffff;
     --shadow: rgba(0, 0, 0, 0.3);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.35);
+    --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.35);
+    --shadow-lg: 0 12px 28px rgba(0, 0, 0, 0.45);
+    --shadow-focus: 0 0 0 3px rgba(96, 165, 250, 0.4);
 }
 
 [data-theme='dark'] body {
@@ -34,7 +66,9 @@
 [data-theme='dark'] .q-box,
 [data-theme='dark'] .sidebar-box,
 [data-theme='dark'] .modal-content,
-[data-theme='dark'] .admin-panel {
+[data-theme='dark'] .admin-panel,
+[data-theme='dark'] .admin-shell,
+[data-theme='dark'] .quiz-action-bar {
     background: var(--card-bg);
     color: var(--text-main);
 }
