@@ -12,6 +12,8 @@ export function toPublicUser(row) {
         fullName: row.full_name,
         role: row.role,
         status: row.status,
+        battalionId: row.battalion_id ?? null,
+        battalionName: row.battalion_name ?? null,
         createdAt: row.created_at,
         updatedAt: row.updated_at
     };
@@ -49,10 +51,42 @@ export function findByMilitaryId(militaryId) {
 }
 
 /**
+ * @param {string} militaryId
+ * @returns {object|null}
+ */
+export function findByMilitaryIdWithBattalion(militaryId) {
+    const row = getDb()
+        .prepare(
+            `SELECT u.*, b.name AS battalion_name
+             FROM users u
+             LEFT JOIN battalions b ON b.id = u.battalion_id
+             WHERE u.military_id = ?`
+        )
+        .get(String(militaryId).trim());
+    return row || null;
+}
+
+/**
+ * @param {{ battalionId?: number|null }} [filters]
  * @returns {object[]}
  */
-export function findAll() {
-    return getDb().prepare('SELECT * FROM users ORDER BY created_at ASC').all();
+export function findAll(filters = {}) {
+    let sql =
+        'SELECT u.*, b.name AS battalion_name FROM users u LEFT JOIN battalions b ON b.id = u.battalion_id';
+    const conditions = [];
+    const values = [];
+
+    if (filters.battalionId !== undefined && filters.battalionId !== null && filters.battalionId !== '') {
+        conditions.push('u.battalion_id = ?');
+        values.push(Number(filters.battalionId));
+    }
+
+    if (conditions.length) {
+        sql += ' WHERE ' + conditions.join(' AND ');
+    }
+
+    sql += ' ORDER BY u.created_at ASC';
+    return getDb().prepare(sql).all(...values);
 }
 
 /**
@@ -63,8 +97,8 @@ export function createUser(data) {
     const now = new Date().toISOString();
     const result = getDb()
         .prepare(
-            `INSERT INTO users (military_id, full_name, password_hash, role, status, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`
+            `INSERT INTO users (military_id, full_name, password_hash, role, status, battalion_id, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
         )
         .run(
             data.militaryId,
@@ -72,6 +106,7 @@ export function createUser(data) {
             data.passwordHash,
             data.role || 'user',
             data.status || 'pending',
+            data.battalionId ?? null,
             now,
             now
         );
@@ -103,6 +138,10 @@ export function updateByMilitaryId(militaryId, fields) {
         sets.push('password_hash = ?');
         values.push(fields.passwordHash);
     }
+    if (fields.battalionId !== undefined) {
+        sets.push('battalion_id = ?');
+        values.push(fields.battalionId);
+    }
 
     if (sets.length === 0) return findByMilitaryId(militaryId);
 
@@ -114,7 +153,7 @@ export function updateByMilitaryId(militaryId, fields) {
         .prepare(`UPDATE users SET ${sets.join(', ')} WHERE military_id = ?`)
         .run(...values);
 
-    return findByMilitaryId(militaryId);
+    return findByMilitaryIdWithBattalion(militaryId);
 }
 
 /**

@@ -41,6 +41,22 @@ export function pickUsers(data) {
 
 /**
  * @param {object|null|undefined} data
+ * @returns {object[]|undefined}
+ */
+export function pickBattalions(data) {
+    return pickResource(data, 'battalions');
+}
+
+/**
+ * @param {object|null|undefined} data
+ * @returns {object[]|undefined}
+ */
+export function pickStats(data) {
+    return pickResource(data, 'stats');
+}
+
+/**
+ * @param {object|null|undefined} data
  * @returns {object[]}
  */
 export function pickRecords(data) {

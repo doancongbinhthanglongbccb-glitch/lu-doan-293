@@ -5,7 +5,7 @@ import bcrypt from 'bcryptjs';
 import { getDb, closeDb } from './connection.js';
 import { env } from '../src/config/env.js';
 import { DEFAULT_ADMIN, MIN_PASSWORD_LENGTH } from '../../shared/constants/user.js';
-import { DEFAULT_QUIZ_TITLE } from '../src/config/constants.js';
+import { DEFAULT_QUIZ_TITLE, DEFAULT_BATTALION_NAME } from '../src/config/constants.js';
 import { replaceQuizData, getQuizData } from '../src/models/quiz.model.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -64,6 +64,50 @@ function ensureTopicParentIdColumn() {
     }
 }
 
+/** Bảng battalions + cột users.battalion_id (additive). */
+function ensureBattalions() {
+    const db = getDb();
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS battalions (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            name        TEXT NOT NULL,
+            is_active   INTEGER NOT NULL DEFAULT 1
+        );
+    `);
+
+    try {
+        db.prepare('ALTER TABLE users ADD COLUMN battalion_id INTEGER REFERENCES battalions(id)').run();
+        console.log('[migrate] Added users.battalion_id column.');
+    } catch (err) {
+        if (!String(err.message).includes('duplicate column')) throw err;
+    }
+
+    try {
+        db.prepare('CREATE INDEX IF NOT EXISTS idx_users_battalion ON users(battalion_id)').run();
+    } catch {
+        /* index may exist */
+    }
+
+    let defaultBattalion = db
+        .prepare('SELECT id FROM battalions WHERE name = ?')
+        .get(DEFAULT_BATTALION_NAME);
+
+    if (!defaultBattalion) {
+        const result = db
+            .prepare('INSERT INTO battalions (name, is_active) VALUES (?, 0)')
+            .run(DEFAULT_BATTALION_NAME);
+        defaultBattalion = { id: result.lastInsertRowid };
+        console.log('[migrate] Created default battalion "' + DEFAULT_BATTALION_NAME + '".');
+    }
+
+    const backfill = db
+        .prepare('UPDATE users SET battalion_id = ? WHERE battalion_id IS NULL')
+        .run(defaultBattalion.id);
+    if (backfill.changes > 0) {
+        console.log(`[migrate] Backfilled battalion_id for ${backfill.changes} user(s).`);
+    }
+}
+
 function isQuizSeedApplied() {
     const row = getDb().prepare('SELECT seed_applied FROM quiz_meta WHERE id = 1').get();
     return !!row?.seed_applied;
@@ -100,19 +144,27 @@ function seedAdmin() {
     const now = new Date().toISOString();
 
     db.prepare(
-        `INSERT INTO users (military_id, full_name, password_hash, role, status, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO users (military_id, full_name, password_hash, role, status, battalion_id, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(
         DEFAULT_ADMIN.militaryId,
         DEFAULT_ADMIN.fullName,
         hash,
         DEFAULT_ADMIN.role,
         DEFAULT_ADMIN.status,
+        getDefaultBattalionId(),
         now,
         now
     );
 
     console.log(`[migrate] Seeded admin: ${DEFAULT_ADMIN.militaryId}`);
+}
+
+function getDefaultBattalionId() {
+    const row = getDb()
+        .prepare('SELECT id FROM battalions WHERE name = ?')
+        .get(DEFAULT_BATTALION_NAME);
+    return row?.id ?? null;
 }
 
 function seedQuizMeta() {
@@ -154,6 +206,7 @@ try {
     runSchema();
     ensureQuizMetaSeedFlag();
     ensureTopicParentIdColumn();
+    ensureBattalions();
     seedAdmin();
     seedQuizMeta();
     seedQuizFromFile();

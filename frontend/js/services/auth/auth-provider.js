@@ -28,9 +28,9 @@ export class AuthProvider {
      * @param {string} militaryId
      * @param {string} fullName
      * @param {string} password
-     * @returns {Promise<{ ok: boolean, message: string }>}
+     * @param {string|number} battalionId
      */
-    async register(_militaryId, _fullName, _password) {
+    async register(_militaryId, _fullName, _password, _battalionId) {
         throw new Error('Not implemented');
     }
 

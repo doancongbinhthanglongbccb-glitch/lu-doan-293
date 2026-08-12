@@ -26,6 +26,7 @@
         <nav class="admin-section-nav" role="tablist" aria-label="Mục quản trị">
             <button type="button" class="admin-section-btn active" data-section="questions" role="tab" aria-selected="true">Quản lý câu hỏi</button>
             <button type="button" class="admin-section-btn" data-section="users" role="tab" aria-selected="false">Quản lý người dùng</button>
+            <button type="button" class="admin-section-btn" data-section="settings" role="tab" aria-selected="false">Cài đặt</button>
             <button type="button" class="admin-section-btn" data-section="history" role="tab" aria-selected="false">Lịch sử thi</button>
         </nav>
 
@@ -115,6 +116,9 @@
                         <p class="toolbar-desc">Duyệt tài khoản, phân quyền và quản lý người dùng</p>
                     </div>
                     <div class="toolbar-actions">
+                        <select id="userBattalionFilter" class="admin-search-input admin-filter-select" aria-label="Lọc theo tiểu đoàn">
+                            <option value="">Tất cả tiểu đoàn</option>
+                        </select>
                         <input type="search" id="userSearchInput" class="admin-search-input" placeholder="Tìm số quân nhân hoặc họ tên..." aria-label="Tìm người dùng">
                     </div>
                 </header>
@@ -153,12 +157,55 @@
                                 <tr>
                                     <th>Số quân nhân</th>
                                     <th>Họ tên</th>
+                                    <th>Tiểu đoàn</th>
                                     <th>Role</th>
                                     <th>Trạng thái</th>
                                     <th>Thao tác</th>
                                 </tr>
                             </thead>
                             <tbody id="userTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PANEL: CÀI ĐẶT -->
+        <div id="panelSettings" class="admin-section-panel" role="tabpanel">
+            <div class="admin-panel-inner">
+                <header class="admin-toolbar">
+                    <div class="toolbar-heading">
+                        <h1 class="toolbar-title">Cài đặt</h1>
+                        <p class="toolbar-desc">Quản lý tiểu đoàn và thống kê đăng ký</p>
+                    </div>
+                </header>
+
+                <div class="admin-stats" id="battalionDashboardStats">
+                    <p class="admin-hint">Tổng số người dùng đã đăng ký theo tiểu đoàn</p>
+                </div>
+
+                <header class="admin-toolbar admin-toolbar-sub">
+                    <div class="toolbar-heading">
+                        <h2 class="toolbar-title">Tiểu đoàn</h2>
+                        <p class="toolbar-desc">Thêm, sửa tên, ẩn/hiện hoặc xóa tiểu đoàn</p>
+                    </div>
+                    <div class="toolbar-actions">
+                        <button type="button" id="btnAddBattalion" class="btn-toolbar btn-orange">+ Thêm tiểu đoàn</button>
+                    </div>
+                </header>
+
+                <div class="admin-panel-body">
+                    <div class="table-wrap">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>Tên tiểu đoàn</th>
+                                    <th>Số user</th>
+                                    <th>Hiển thị đăng ký</th>
+                                    <th>Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody id="battalionTableBody"></tbody>
                         </table>
                     </div>
                 </div>
@@ -234,6 +281,10 @@
                 <input type="text" id="editUserFullName">
             </div>
             <div class="input-group">
+                <label>Tiểu đoàn</label>
+                <select id="editUserBattalion"></select>
+            </div>
+            <div class="input-group">
                 <label>Role</label>
                 <select id="editUserRole">
                     <option value="user">User</option>
@@ -270,6 +321,24 @@
             <div class="modal-actions">
                 <button type="button" id="btnCancelResetPwd" class="btn-nav">Hủy</button>
                 <button type="button" id="btnConfirmResetPwd" class="btn-nav btn-modal-primary">Reset</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Battalion -->
+    <div class="modal" id="battalionModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title" id="battalionModalTitle">Thêm tiểu đoàn</span>
+            </div>
+            <input type="hidden" id="battalionEditId">
+            <div class="input-group">
+                <label for="battalionNameInput">Tên tiểu đoàn</label>
+                <input type="text" id="battalionNameInput" placeholder="Nhập tên tiểu đoàn">
+            </div>
+            <div class="modal-actions">
+                <button type="button" id="btnCancelBattalion" class="btn-nav">Hủy</button>
+                <button type="button" id="btnSaveBattalion" class="btn-nav btn-modal-primary">Lưu</button>
             </div>
         </div>
     </div>

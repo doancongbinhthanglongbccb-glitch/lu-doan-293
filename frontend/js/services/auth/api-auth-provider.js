@@ -22,6 +22,8 @@ export class ApiAuthProvider extends AuthProvider {
         super();
         /** @type {object|null} */
         this._usersCache = null;
+        /** @type {string|undefined} */
+        this._usersBattalionFilter = undefined;
     }
 
     /** @inheritdoc */
@@ -33,9 +35,10 @@ export class ApiAuthProvider extends AuthProvider {
      * Load users list from API (admin).
      * @returns {Promise<object>}
      */
-    async initUsers() {
-        if (this._usersCache) return this._usersCache;
-        const { data } = await apiClient.get('/users', { silent: true });
+    async initUsers(battalionId) {
+        this._usersBattalionFilter = battalionId;
+        const query = battalionId ? `?battalionId=${encodeURIComponent(battalionId)}` : '';
+        const { data } = await apiClient.get(`/users${query}`, { silent: true });
         this._usersCache = { users: pickUsers(data) || [] };
         userRepo.saveUsers(this._usersCache);
         return this._usersCache;
@@ -118,15 +121,18 @@ export class ApiAuthProvider extends AuthProvider {
      * @param {string} militaryId
      * @param {string} fullName
      * @param {string} password
+     * @param {string|number} battalionId
      */
-    async register(militaryId, fullName, password) {
+    async register(militaryId, fullName, password, battalionId) {
         militaryId = String(militaryId).trim();
         fullName = String(fullName).trim();
+        battalionId = String(battalionId || '').trim();
 
         if (!this.isValidMilitaryId(militaryId)) {
             return { ok: false, message: 'Số quân nhân phải đúng 8 chữ số.' };
         }
         if (!fullName) return { ok: false, message: 'Vui lòng nhập họ và tên.' };
+        if (!battalionId) return { ok: false, message: 'Vui lòng chọn tiểu đoàn.' };
         if (!password || password.length < MIN_PASSWORD_LENGTH) {
             return { ok: false, message: `Mật khẩu phải có ít nhất ${MIN_PASSWORD_LENGTH} ký tự.` };
         }
@@ -134,7 +140,12 @@ export class ApiAuthProvider extends AuthProvider {
         try {
             const { data } = await apiClient.post(
                 '/auth/register',
-                { militaryId, fullName, password },
+                {
+                    militaryId,
+                    fullName,
+                    password,
+                    battalionId: parseInt(battalionId, 10)
+                },
                 { skipAuth: true }
             );
             return {
@@ -204,9 +215,9 @@ export class ApiAuthProvider extends AuthProvider {
      * Reload users list from API (admin).
      * @returns {Promise<object>}
      */
-    async reloadUsers() {
+    async reloadUsers(battalionId) {
         this._usersCache = null;
-        return this.initUsers();
+        return this.initUsers(battalionId ?? this._usersBattalionFilter);
     }
 
     /** @param {string} militaryId */

@@ -23,7 +23,7 @@ import { showLoading, hideLoading } from '../../ui/loading.js';
 import { handleError } from '../../utils/errors.js';
 import { renderAdminHistoryTable } from '../quiz/exam-history-renderer.js';
 import { apiClient } from '../../services/api/api-client.js';
-import { unwrapPayload } from '../../services/api/api-response.js';
+import { unwrapPayload, pickBattalions, pickStats } from '../../services/api/api-response.js';
 import {
     isTopicParent,
     isTopicLeaf,
@@ -51,6 +51,9 @@ export class AdminController {
         /** @type {object[]} */
         this.historyRecords = [];
         this._historySearchTimer = null;
+        /** @type {object[]} */
+        this.battalions = [];
+        this.userBattalionFilter = '';
     }
 
     /** Initialize admin panel */
@@ -61,12 +64,14 @@ export class AdminController {
         $('adminUserName').textContent = currentUser.fullName || 'Admin';
         this.bindEvents();
         this.bindUserEvents();
+        this.bindBattalionEvents();
         this.bindHistoryEvents();
 
         showLoading('Đang tải...');
 
         try {
-            await auth.initUsers();
+            await this.loadBattalions();
+            await auth.initUsers(this.userBattalionFilter || undefined);
             await this._loadData();
 
             this.renderStats();
@@ -783,8 +788,13 @@ export class AdminController {
         });
         $('panelQuestions').classList.toggle('active', section === 'questions');
         $('panelUsers').classList.toggle('active', section === 'users');
+        $('panelSettings').classList.toggle('active', section === 'settings');
         $('panelHistory').classList.toggle('active', section === 'history');
         if (section === 'users') this.renderUserTable();
+        if (section === 'settings') {
+            this.loadBattalionDashboard();
+            this.renderBattalionTable();
+        }
         if (section === 'history') this.loadHistoryTable();
     }
 
@@ -834,7 +844,7 @@ export class AdminController {
         const users = this.getFilteredUsers();
 
         if (!users.length) {
-            tbody.innerHTML = '<tr><td colspan="5" class="empty-cell">Không có user nào.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">Không có user nào.</td></tr>';
             return;
         }
 
@@ -858,6 +868,7 @@ export class AdminController {
             tr.innerHTML =
                 `<td><code class="user-id">${u.militaryId}</code></td>` +
                 `<td>${escapeAttr(u.fullName || '—')}</td>` +
+                `<td>${escapeAttr(u.battalionName || '—')}</td>` +
                 `<td><span class="role-badge role-${u.role}">${u.role === 'admin' ? 'Admin' : 'User'}</span></td>` +
                 `<td><span class="status-badge ${this.statusBadgeClass(u.status)}">${auth.getStatusLabel(u.status)}</span></td>` +
                 `<td class="actions-cell user-actions">${actions}</td>`;
@@ -921,6 +932,7 @@ export class AdminController {
         $('editUserMilitaryId').value = user.militaryId;
         $('editUserIdDisplay').value = user.militaryId;
         $('editUserFullName').value = user.fullName || '';
+        this.populateBattalionSelect($('editUserBattalion'), user.battalionId);
         $('editUserRole').value = user.role || 'user';
         $('editUserStatus').value = user.status || 'pending';
 
@@ -935,6 +947,7 @@ export class AdminController {
         const militaryId = $('editUserMilitaryId').value;
         const result = await auth.updateUser(militaryId, {
             fullName: $('editUserFullName').value,
+            battalionId: parseInt($('editUserBattalion').value, 10),
             role: $('editUserRole').value,
             status: $('editUserStatus').value
         });
@@ -979,10 +992,202 @@ export class AdminController {
             this.renderUserTable();
         };
 
+        const battalionFilter = $('userBattalionFilter');
+        if (battalionFilter) {
+            battalionFilter.onchange = async e => {
+                this.userBattalionFilter = e.target.value;
+                showLoading('Đang tải...');
+                try {
+                    await auth.reloadUsers(this.userBattalionFilter || undefined);
+                    this.renderUserTable();
+                } catch (err) {
+                    handleError(err, { context: 'AdminController.battalionFilter', fallbackKey: 'NETWORK' });
+                } finally {
+                    hideLoading();
+                }
+            };
+        }
+
         $('btnCancelEditUser').onclick = () => ModalManager.close('userEditModal');
         $('btnSaveEditUser').onclick = () => this.saveEditUser();
         $('btnCancelResetPwd').onclick = () => ModalManager.close('userResetPwdModal');
         $('btnConfirmResetPwd').onclick = () => this.confirmResetPwd();
+    }
+
+    // ——— Battalion management ———
+
+    async loadBattalions() {
+        const { data } = await apiClient.get('/battalions', { silent: true });
+        this.battalions = pickBattalions(data) || [];
+        this.populateBattalionFilter();
+        return this.battalions;
+    }
+
+    populateBattalionFilter() {
+        const select = $('userBattalionFilter');
+        if (!select) return;
+        const current = this.userBattalionFilter;
+        select.innerHTML = '<option value="">Tất cả tiểu đoàn</option>';
+        this.battalions.forEach(b => {
+            const opt = document.createElement('option');
+            opt.value = String(b.id);
+            opt.textContent = b.isActive ? b.name : `${b.name} (ẩn)`;
+            select.appendChild(opt);
+        });
+        select.value = current;
+    }
+
+    populateBattalionSelect(selectEl, selectedId) {
+        if (!selectEl) return;
+        selectEl.innerHTML = '';
+        this.battalions.forEach(b => {
+            const opt = document.createElement('option');
+            opt.value = String(b.id);
+            opt.textContent = b.isActive ? b.name : `${b.name} (ẩn)`;
+            if (selectedId && String(b.id) === String(selectedId)) opt.selected = true;
+            selectEl.appendChild(opt);
+        });
+    }
+
+    async loadBattalionDashboard() {
+        try {
+            const { data } = await apiClient.get('/battalions/dashboard/registration', { silent: true });
+            const stats = pickStats(data) || [];
+            const container = $('battalionDashboardStats');
+            if (!container) return;
+            container.innerHTML = '<p class="admin-hint">Tổng số người dùng đã đăng ký theo tiểu đoàn</p>';
+            stats.forEach(row => {
+                const card = document.createElement('div');
+                card.className = 'stat-card';
+                card.innerHTML =
+                    `<span class="stat-label">${escapeAttr(row.name)}</span>` +
+                    `<span class="stat-value">${row.userCount ?? 0}</span>`;
+                container.appendChild(card);
+            });
+        } catch (err) {
+            handleError(err, { context: 'AdminController.loadBattalionDashboard', fallbackKey: 'NETWORK' });
+        }
+    }
+
+    renderBattalionTable() {
+        const tbody = $('battalionTableBody');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+
+        if (!this.battalions.length) {
+            tbody.innerHTML = '<tr><td colspan="4" class="empty-cell">Chưa có tiểu đoàn.</td></tr>';
+            return;
+        }
+
+        this.battalions.forEach(b => {
+            const tr = document.createElement('tr');
+            const canDelete = (b.userCount ?? 0) === 0;
+            const deleteBtn = canDelete
+                ? `<button class="btn-sm btn-delete battalion-delete" data-id="${b.id}">Xóa</button>`
+                : `<button class="btn-sm btn-delete" disabled title="Còn ${b.userCount} user — chuyển họ sang tiểu đoàn khác trước khi xóa">Xóa</button>`;
+
+            tr.innerHTML =
+                `<td>${escapeAttr(b.name)}</td>` +
+                `<td>${b.userCount ?? 0}</td>` +
+                `<td><span class="status-badge ${b.isActive ? 'status-approved' : 'status-rejected'}">${b.isActive ? 'Hiện' : 'Ẩn'}</span></td>` +
+                `<td class="actions-cell">` +
+                `<button class="btn-sm btn-edit battalion-edit" data-id="${b.id}">Sửa</button> ` +
+                `<button class="btn-sm btn-blue battalion-toggle" data-id="${b.id}" data-active="${b.isActive ? '1' : '0'}">${b.isActive ? 'Ẩn' : 'Hiện'}</button> ` +
+                deleteBtn +
+                `</td>`;
+            tbody.appendChild(tr);
+        });
+
+        tbody.querySelectorAll('.battalion-edit').forEach(btn => {
+            btn.onclick = () => this.openBattalionModal(parseInt(btn.dataset.id, 10));
+        });
+        tbody.querySelectorAll('.battalion-toggle').forEach(btn => {
+            btn.onclick = () =>
+                this.toggleBattalionActive(parseInt(btn.dataset.id, 10), btn.dataset.active !== '1');
+        });
+        tbody.querySelectorAll('.battalion-delete').forEach(btn => {
+            btn.onclick = () => this.deleteBattalion(parseInt(btn.dataset.id, 10));
+        });
+    }
+
+    openBattalionModal(id = null) {
+        const isEdit = id != null;
+        $('battalionModalTitle').textContent = isEdit ? 'Sửa tiểu đoàn' : 'Thêm tiểu đoàn';
+        $('battalionEditId').value = isEdit ? String(id) : '';
+        const battalion = isEdit ? this.battalions.find(b => b.id === id) : null;
+        $('battalionNameInput').value = battalion?.name || '';
+        ModalManager.open('battalionModal');
+    }
+
+    async saveBattalion() {
+        const name = $('battalionNameInput').value.trim();
+        if (!name) return Toast.warning('Vui lòng nhập tên tiểu đoàn.');
+
+        const editId = $('battalionEditId').value;
+        showLoading('Đang lưu...');
+        try {
+            if (editId) {
+                await apiClient.patch(`/battalions/${editId}`, { name });
+                Toast.success('Đã cập nhật tiểu đoàn.');
+            } else {
+                await apiClient.post('/battalions', { name });
+                Toast.success('Đã thêm tiểu đoàn.');
+            }
+            ModalManager.close('battalionModal');
+            await this.loadBattalions();
+            await auth.reloadUsers(this.userBattalionFilter || undefined);
+            this.renderBattalionTable();
+            this.loadBattalionDashboard();
+            this.renderUserTable();
+        } catch (err) {
+            Toast.error(err.message || 'Lưu tiểu đoàn thất bại.');
+        } finally {
+            hideLoading();
+        }
+    }
+
+    async toggleBattalionActive(id, isActive) {
+        showLoading('Đang cập nhật...');
+        try {
+            await apiClient.patch(`/battalions/${id}`, { isActive });
+            Toast.success(isActive ? 'Đã hiện tiểu đoàn.' : 'Đã ẩn tiểu đoàn.');
+            await this.loadBattalions();
+            this.renderBattalionTable();
+            this.loadBattalionDashboard();
+        } catch (err) {
+            Toast.error(err.message || 'Cập nhật thất bại.');
+        } finally {
+            hideLoading();
+        }
+    }
+
+    deleteBattalion(id) {
+        const battalion = this.battalions.find(b => b.id === id);
+        if (!battalion) return;
+        ModalManager.confirm({
+            title: 'Xóa tiểu đoàn',
+            message: `Xóa tiểu đoàn "${battalion.name}"? Hành động này không thể hoàn tác.`,
+            onConfirm: async () => {
+                showLoading('Đang xóa...');
+                try {
+                    await apiClient.delete(`/battalions/${id}`);
+                    Toast.success('Đã xóa tiểu đoàn.');
+                    await this.loadBattalions();
+                    this.renderBattalionTable();
+                    this.loadBattalionDashboard();
+                } catch (err) {
+                    Toast.error(err.message || 'Xóa tiểu đoàn thất bại.');
+                } finally {
+                    hideLoading();
+                }
+            }
+        });
+    }
+
+    bindBattalionEvents() {
+        $('btnAddBattalion').onclick = () => this.openBattalionModal();
+        $('btnCancelBattalion').onclick = () => ModalManager.close('battalionModal');
+        $('btnSaveBattalion').onclick = () => this.saveBattalion();
     }
 
     // ——— Exam history (admin) ———

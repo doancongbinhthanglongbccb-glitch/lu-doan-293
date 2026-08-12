@@ -4,7 +4,7 @@ import { sendSuccess } from '../utils/response.js';
 
 export function listUsers(req, res, next) {
     try {
-        const users = userService.listUsers();
+        const users = userService.listUsers({ battalionId: req.query.battalionId });
         sendSuccess(res, { users });
     } catch (err) {
         next(err);

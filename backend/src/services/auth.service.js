@@ -1,4 +1,5 @@
 import * as userModel from '../models/user.model.js';
+import * as battalionService from './battalion.service.js';
 import { hashPassword, comparePassword } from '../utils/password.js';
 import {
     signAccessToken,
@@ -68,7 +69,7 @@ export async function login(militaryId, password) {
 }
 
 /**
- * @param {{ militaryId: string, fullName: string, password: string }} data
+ * @param {{ militaryId: string, fullName: string, password: string, battalionId: number }} data
  */
 export async function register(data) {
     const existing = userModel.findByMilitaryId(data.militaryId);
@@ -78,13 +79,21 @@ export async function register(data) {
         throw err;
     }
 
+    const battalionId = Number(data.battalionId);
+    if (!battalionId || !battalionService.isActiveBattalion(battalionId)) {
+        const err = new Error('Vui lòng chọn tiểu đoàn hợp lệ.');
+        err.status = 400;
+        throw err;
+    }
+
     const passwordHash = await hashPassword(data.password);
     const user = userModel.createUser({
         militaryId: data.militaryId,
         fullName: data.fullName,
         passwordHash,
         role: 'user',
-        status: USER_STATUS.PENDING
+        status: USER_STATUS.PENDING,
+        battalionId
     });
 
     return {

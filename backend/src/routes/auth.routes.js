@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { body } from 'express-validator';
 import * as authController from '../controllers/auth.controller.js';
+import * as battalionController from '../controllers/battalion.controller.js';
 import { validate } from '../middleware/validate.js';
 import { authRateLimiter } from '../middleware/rate-limit.js';
 import { requireAuth } from '../middleware/require-auth.js';
@@ -32,10 +33,15 @@ router.post(
     validate([
         militaryIdValidator,
         body('fullName').trim().notEmpty().withMessage('Vui lòng nhập họ và tên.'),
-        passwordValidator
+        passwordValidator,
+        body('battalionId')
+            .isInt({ min: 1 })
+            .withMessage('Vui lòng chọn tiểu đoàn.')
     ]),
     authController.register
 );
+
+router.get('/battalions', battalionController.listActive);
 
 router.post('/logout', requireAuth, authController.logout);
 

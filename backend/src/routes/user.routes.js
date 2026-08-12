@@ -25,7 +25,11 @@ router.patch(
         body('status')
             .optional()
             .isIn(['pending', 'approved', 'rejected'])
-            .withMessage('Trạng thái không hợp lệ.')
+            .withMessage('Trạng thái không hợp lệ.'),
+        body('battalionId')
+            .optional()
+            .isInt({ min: 1 })
+            .withMessage('Tiểu đoàn không hợp lệ.')
     ]),
     userController.updateUser
 );

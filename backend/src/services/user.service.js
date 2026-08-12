@@ -1,8 +1,16 @@
 import * as userModel from '../models/user.model.js';
+import * as battalionService from './battalion.service.js';
 import { USER_STATUS, USER_ROLES } from '../config/constants.js';
 
-export function listUsers() {
-    return userModel.findAll().map(userModel.toPublicUser);
+/**
+ * @param {{ battalionId?: number|string|null }} [filters]
+ */
+export function listUsers(filters = {}) {
+    const battalionId =
+        filters.battalionId !== undefined && filters.battalionId !== null && filters.battalionId !== ''
+            ? Number(filters.battalionId)
+            : undefined;
+    return userModel.findAll({ battalionId }).map(userModel.toPublicUser);
 }
 
 /**
@@ -46,6 +54,15 @@ export function updateUser(militaryId, data) {
     if (data.status !== undefined) {
         fields.status = data.status;
         revokeIfNotApproved(user.id, data.status);
+    }
+    if (data.battalionId !== undefined) {
+        const battalionId = Number(data.battalionId);
+        if (!battalionService.exists(battalionId)) {
+            const err = new Error('Tiểu đoàn không hợp lệ.');
+            err.status = 400;
+            throw err;
+        }
+        fields.battalionId = battalionId;
     }
 
     const updated = userModel.updateByMilitaryId(militaryId, fields);

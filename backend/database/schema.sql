@@ -1,5 +1,11 @@
 -- CBQuiz SQLite schema
 
+CREATE TABLE IF NOT EXISTS battalions (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    name        TEXT NOT NULL,
+    is_active   INTEGER NOT NULL DEFAULT 1
+);
+
 CREATE TABLE IF NOT EXISTS users (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     military_id     TEXT NOT NULL UNIQUE CHECK(length(military_id) = 8),
@@ -9,6 +15,7 @@ CREATE TABLE IF NOT EXISTS users (
                     CHECK(role IN ('admin', 'user')),
     status          TEXT NOT NULL DEFAULT 'pending'
                     CHECK(status IN ('pending', 'approved', 'rejected')),
+    battalion_id    INTEGER REFERENCES battalions(id),
     created_at      TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );

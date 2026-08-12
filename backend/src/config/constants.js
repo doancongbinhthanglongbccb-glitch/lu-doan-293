@@ -12,3 +12,5 @@ export const TOKEN_TYPES = {
 };
 
 export const DEFAULT_QUIZ_TITLE = 'Hệ thống ôn tập trắc nghiệm';
+
+export const DEFAULT_BATTALION_NAME = 'Chưa phân loại';

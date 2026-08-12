@@ -188,6 +188,12 @@
     border-color: var(--blue-accent);
     box-shadow: var(--shadow-focus);
 }
+
+.admin-filter-select {
+    flex: 0 1 auto;
+    min-width: min(200px, 100%);
+    cursor: pointer;
+}
 .btn-toolbar {
     min-height: 44px;
     padding: 10px 16px;
