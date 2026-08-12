@@ -29,6 +29,15 @@ export function putQuiz(req, res, next) {
     }
 }
 
+export function patchQuizSettings(req, res, next) {
+    try {
+        const settings = quizService.updateQuizSettings(req.body);
+        sendSuccess(res, { settings }, 'Đã cập nhật cài đặt.');
+    } catch (err) {
+        next(err);
+    }
+}
+
 export function getWrongHistory(req, res, next) {
     try {
         const history = quizService.getWrongHistory(req.user.id);

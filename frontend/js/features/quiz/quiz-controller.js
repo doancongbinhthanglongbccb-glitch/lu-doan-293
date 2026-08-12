@@ -539,7 +539,10 @@ export class QuizController {
 
     _startGeneralReview() {
         const { originalData } = store.getState();
-        const set = QuizEngine.buildGeneralReviewSet(originalData);
+        const count =
+            originalData?.settings?.practiceMixedQuestionCount ??
+            originalData?.practiceMixedQuestionCount;
+        const set = QuizEngine.buildGeneralReviewSet(originalData, count);
         this._startQuizSession({
             mode: QUIZ_MODES.REVIEW,
             reviewSubMode: REVIEW_SUB_MODES.GENERAL,

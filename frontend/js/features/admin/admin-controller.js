@@ -23,7 +23,7 @@ import { showLoading, hideLoading } from '../../ui/loading.js';
 import { handleError } from '../../utils/errors.js';
 import { renderAdminHistoryTable } from '../quiz/exam-history-renderer.js';
 import { apiClient } from '../../services/api/api-client.js';
-import { unwrapPayload, pickBattalions, pickStats } from '../../services/api/api-response.js';
+import { unwrapPayload, pickBattalions, pickStats, pickSettings } from '../../services/api/api-response.js';
 import {
     isTopicParent,
     isTopicLeaf,
@@ -793,6 +793,7 @@ export class AdminController {
         if (section === 'users') this.renderUserTable();
         if (section === 'settings') {
             this.loadBattalionDashboard();
+            this.renderQuizSettings();
             this.renderBattalionTable();
         }
         if (section === 'history') this.loadHistoryTable();
@@ -1188,6 +1189,39 @@ export class AdminController {
         $('btnAddBattalion').onclick = () => this.openBattalionModal();
         $('btnCancelBattalion').onclick = () => ModalManager.close('battalionModal');
         $('btnSaveBattalion').onclick = () => this.saveBattalion();
+        $('btnSaveQuizSettings').onclick = () => this.saveQuizSettings();
+    }
+
+    renderQuizSettings() {
+        const input = $('practiceMixedQuestionCount');
+        if (!input || !this.quizData) return;
+        const count = this.quizData.settings?.practiceMixedQuestionCount;
+        input.value = count > 0 ? String(count) : '';
+    }
+
+    async saveQuizSettings() {
+        const input = $('practiceMixedQuestionCount');
+        if (!input) return;
+        const count = parseInt(input.value, 10);
+        if (!count || count < 1) {
+            return Toast.warning('Số câu phải là số nguyên dương.');
+        }
+
+        showLoading('Đang lưu...');
+        try {
+            const { data } = await apiClient.patch('/quiz/settings', {
+                practiceMixedQuestionCount: count
+            });
+            const settings = pickSettings(data) || { practiceMixedQuestionCount: count };
+            if (this.quizData) {
+                this.quizData.settings = settings;
+            }
+            Toast.success('Đã cập nhật cài đặt ôn tập tổng hợp.');
+        } catch (err) {
+            Toast.error(err.message || 'Lưu cài đặt thất bại.');
+        } finally {
+            hideLoading();
+        }
     }
 
     // ——— Exam history (admin) ———

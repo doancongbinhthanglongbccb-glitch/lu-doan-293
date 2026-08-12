@@ -38,8 +38,8 @@ CREATE TABLE IF NOT EXISTS quiz_meta (
     id          INTEGER PRIMARY KEY CHECK (id = 1),
     title       TEXT NOT NULL DEFAULT 'Hệ thống ôn tập trắc nghiệm',
     updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
-    seed_applied INTEGER NOT NULL DEFAULT 0
-    
+    seed_applied INTEGER NOT NULL DEFAULT 0,
+    practice_mixed_question_count INTEGER NOT NULL DEFAULT 30
 );
 
 CREATE TABLE IF NOT EXISTS topics (

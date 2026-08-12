@@ -24,6 +24,13 @@ export function saveQuiz(data) {
 }
 
 /**
+ * @param {{ practiceMixedQuestionCount: number }} data
+ */
+export function updateQuizSettings(data) {
+    return quizModel.updateQuizSettings(data);
+}
+
+/**
  * @param {number} userId
  */
 export function getWrongHistory(userId) {

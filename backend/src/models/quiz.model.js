@@ -1,5 +1,5 @@
 import { getDb } from '../../database/connection.js';
-import { DEFAULT_QUIZ_TITLE } from '../config/constants.js';
+import { DEFAULT_QUIZ_TITLE, DEFAULT_PRACTICE_MIXED_QUESTION_COUNT } from '../config/constants.js';
 import { runTransaction } from '../utils/transaction.js';
 import { sanitizeQuizDataHtml } from '../utils/sanitize-html.js';
 
@@ -119,8 +119,49 @@ function syncTopicQuestions(db, topicId, questions) {
 }
 
 /**
+ * @returns {{ practiceMixedQuestionCount: number }}
+ */
+export function getQuizSettings() {
+    const row = getDb()
+        .prepare('SELECT practice_mixed_question_count FROM quiz_meta WHERE id = 1')
+        .get();
+    const count = row?.practice_mixed_question_count;
+    return {
+        practiceMixedQuestionCount:
+            count > 0 ? count : DEFAULT_PRACTICE_MIXED_QUESTION_COUNT
+    };
+}
+
+/**
+ * @param {{ practiceMixedQuestionCount: number }} data
+ * @returns {{ practiceMixedQuestionCount: number }}
+ */
+export function updateQuizSettings(data) {
+    const count = parseInt(data.practiceMixedQuestionCount, 10);
+    if (!count || count < 1) {
+        const err = new Error('Số câu ôn tập tổng hợp phải là số nguyên dương.');
+        err.status = 400;
+        throw err;
+    }
+
+    const db = getDb();
+    const row = db.prepare('SELECT id FROM quiz_meta WHERE id = 1').get();
+    if (!row) {
+        db.prepare(
+            'INSERT INTO quiz_meta (id, title, practice_mixed_question_count) VALUES (1, ?, ?)'
+        ).run(DEFAULT_QUIZ_TITLE, count);
+    } else {
+        db.prepare(
+            "UPDATE quiz_meta SET practice_mixed_question_count = ?, updated_at = datetime('now') WHERE id = 1"
+        ).run(count);
+    }
+
+    return getQuizSettings();
+}
+
+/**
  * Load full quiz payload — chủ đề 2 cấp (parent → children) hoặc leaf legacy.
- * @returns {{ title: string, topics: object[] }}
+ * @returns {{ title: string, topics: object[], settings: object }}
  */
 export function getQuizData() {
     const db = getDb();
@@ -169,7 +210,7 @@ export function getQuizData() {
         };
     });
 
-    return { title, topics };
+    return { title, topics, settings: getQuizSettings() };
 }
 
 /**

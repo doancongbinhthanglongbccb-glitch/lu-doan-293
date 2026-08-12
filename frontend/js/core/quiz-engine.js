@@ -40,12 +40,16 @@ export const QuizEngine = {
     },
 
     /**
-     * Build general review set.
+     * Build general review set — random sample from full pool.
      * @param {object} originalData
+     * @param {number} [count] Số câu/bộ (từ cài đặt admin)
      * @returns {{ title: string, questions: object[] }}
      */
-    buildGeneralReviewSet(originalData) {
-        const questions = clone(flattenQuestions(originalData));
+    buildGeneralReviewSet(originalData, count) {
+        let questions = clone(flattenQuestions(originalData));
+        shuffle(questions);
+        const n = count > 0 ? count : questions.length;
+        questions = questions.slice(0, Math.min(n, questions.length));
         markQuestionsMul(questions);
         return { title: originalData.title, questions };
     },

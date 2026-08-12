@@ -5,7 +5,7 @@ import bcrypt from 'bcryptjs';
 import { getDb, closeDb } from './connection.js';
 import { env } from '../src/config/env.js';
 import { DEFAULT_ADMIN, MIN_PASSWORD_LENGTH } from '../../shared/constants/user.js';
-import { DEFAULT_QUIZ_TITLE, DEFAULT_BATTALION_NAME } from '../src/config/constants.js';
+import { DEFAULT_QUIZ_TITLE, DEFAULT_BATTALION_NAME, DEFAULT_PRACTICE_MIXED_QUESTION_COUNT } from '../src/config/constants.js';
 import { replaceQuizData, getQuizData } from '../src/models/quiz.model.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -108,6 +108,27 @@ function ensureBattalions() {
     }
 }
 
+/** Cột practice_mixed_question_count cho quiz_meta. */
+function ensurePracticeMixedQuestionCount() {
+    const db = getDb();
+    try {
+        db.prepare(
+            `ALTER TABLE quiz_meta ADD COLUMN practice_mixed_question_count INTEGER NOT NULL DEFAULT ${DEFAULT_PRACTICE_MIXED_QUESTION_COUNT}`
+        ).run();
+        console.log('[migrate] Added quiz_meta.practice_mixed_question_count column.');
+    } catch (err) {
+        if (!String(err.message).includes('duplicate column')) throw err;
+    }
+
+    const meta = db.prepare('SELECT practice_mixed_question_count FROM quiz_meta WHERE id = 1').get();
+    if (!meta) return;
+    if (!meta.practice_mixed_question_count || meta.practice_mixed_question_count < 1) {
+        db.prepare(
+            'UPDATE quiz_meta SET practice_mixed_question_count = ? WHERE id = 1'
+        ).run(DEFAULT_PRACTICE_MIXED_QUESTION_COUNT);
+    }
+}
+
 function isQuizSeedApplied() {
     const row = getDb().prepare('SELECT seed_applied FROM quiz_meta WHERE id = 1').get();
     return !!row?.seed_applied;
@@ -207,6 +228,7 @@ try {
     ensureQuizMetaSeedFlag();
     ensureTopicParentIdColumn();
     ensureBattalions();
+    ensurePracticeMixedQuestionCount();
     seedAdmin();
     seedQuizMeta();
     seedQuizFromFile();

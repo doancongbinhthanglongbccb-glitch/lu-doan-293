@@ -57,6 +57,14 @@ export function pickStats(data) {
 
 /**
  * @param {object|null|undefined} data
+ * @returns {object|undefined}
+ */
+export function pickSettings(data) {
+    return pickResource(data, 'settings');
+}
+
+/**
+ * @param {object|null|undefined} data
  * @returns {object[]}
  */
 export function pickRecords(data) {

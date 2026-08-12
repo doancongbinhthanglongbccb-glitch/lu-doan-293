@@ -48,6 +48,9 @@ export function normalizeData(data) {
     });
 
     normalizeTopicTree(data);
+    if (data.settings && typeof data.settings === 'object') {
+        data.settings = { ...data.settings };
+    }
     return sanitizeQuizDataHtml(data);
 }
 

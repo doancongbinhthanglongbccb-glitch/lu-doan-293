@@ -194,6 +194,19 @@
     min-width: min(200px, 100%);
     cursor: pointer;
 }
+
+.admin-settings-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.admin-settings-form .input-group {
+    flex: 1 1 200px;
+    margin-bottom: 0;
+}
 .btn-toolbar {
     min-height: 44px;
     padding: 10px 16px;
