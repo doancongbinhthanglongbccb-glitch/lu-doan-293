@@ -120,7 +120,7 @@ export class QuestionRenderer {
      * @returns {string}
      */
     _renderActionBar(mode, ansState) {
-        if (mode === QUIZ_MODES.EXAM) {
+        if (mode === QUIZ_MODES.EXAM || mode === QUIZ_MODES.CHECK) {
             const isDoubt = ansState?.doubtful;
             const btnClass = isDoubt ? 'btn-flag is-active' : 'btn-flag';
             const btnText = isDoubt ? 'Đã đánh dấu nghi ngờ' : 'Đánh dấu nghi ngờ';

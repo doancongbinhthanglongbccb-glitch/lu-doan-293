@@ -15,6 +15,7 @@ export {
 export const QUIZ_MODES = {
     REVIEW: 'review',
     EXAM: 'exam',
+    CHECK: 'check',
     WRONG: 'wrong'
 };
 

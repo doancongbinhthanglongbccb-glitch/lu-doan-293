@@ -9,7 +9,8 @@ import {
     hasAnswer,
     emptyAnswerState,
     isMultiSelectType,
-    countAllQuestions
+    countAllQuestions,
+    prepareQuestion
 } from '../../core/grading.js';
 import { quizTimer } from '../../core/timer-service.js';
 import { createWrongHistoryService } from '../../core/wrong-history-service.js';
@@ -28,6 +29,7 @@ import { showLoading, hideLoading } from '../../ui/loading.js';
 import { queueTypeset } from '../../ui/mathjax-renderer.js';
 import { handleError } from '../../utils/errors.js';
 import { listSelectableLeaves, isTopicParent } from '../../core/topic-tree.js';
+import * as checkExamApi from '../../services/exam/check-exam-api.js';
 
 /**
  * Main quiz application controller — orchestrates UI and business logic.
@@ -50,6 +52,11 @@ export class QuizController {
         this.timerBox = null;
         this.timeLeftDisplay = null;
         this.quizMainTitle = null;
+        /** @type {object[]} */
+        this.openCheckSessions = [];
+        this.selectedCheckBranch = null;
+        this.selectedCheckSession = null;
+        this._closesAtTimer = null;
     }
 
     /** Initialize quiz application */
@@ -78,6 +85,7 @@ export class QuizController {
             store.setState({ originalData });
 
             this._setupHomeScreen(originalData);
+            await this._refreshCheckAvailability();
             this._bindQuizDataRefresh();
             this.showScreen('screenHome');
         } catch (err) {
@@ -318,6 +326,7 @@ export class QuizController {
 
     /** Submit exam/review and show results */
     submitExam() {
+        this._clearClosesAtWatcher();
         quizTimer.destroy();
         const state = store.getState();
         const answers = { ...state.answers };
@@ -364,6 +373,9 @@ export class QuizController {
 
         if (state.mode === QUIZ_MODES.EXAM) {
             this._saveExamHistory();
+        }
+        if (state.mode === QUIZ_MODES.CHECK) {
+            this._saveCheckResult();
         }
     }
 
@@ -435,6 +447,206 @@ export class QuizController {
             });
         } catch (err) {
             console.warn('[QuizController] exam history save failed:', err.message);
+        }
+    }
+
+    async _saveCheckResult() {
+        const state = store.getState();
+        const sessionId = state.checkSessionId;
+        if (!sessionId) return;
+
+        const timerState = quizTimer.getState();
+        const { scoreCount, totalCount, quizData, timeTotalStr, timeStartStr, timeEndStr } = state;
+        const { scoreNumeric } = QuizEngine.summarizeScore(scoreCount, totalCount);
+        const counts = QuizEngine.countByStatus(quizData.questions, state.answers, hasAnswer);
+
+        try {
+            await checkExamApi.submitSession(sessionId, {
+                score: scoreNumeric,
+                total: totalCount,
+                durationSec: timerState.elapsed,
+                detail: {
+                    title: quizData.title,
+                    type: state.checkSessionType,
+                    timeStart: timeStartStr,
+                    timeEnd: timeEndStr,
+                    timeLimit: timeTotalStr,
+                    correct: counts.correct,
+                    wrong: counts.wrong,
+                    unanswered: counts.unanswered
+                }
+            });
+        } catch (err) {
+            console.warn('[QuizController] check submit failed:', err.message);
+            Toast.error(err.message || 'Lưu kết quả kiểm tra thất bại.');
+        }
+    }
+
+    async _refreshCheckAvailability() {
+        try {
+            this.openCheckSessions = await checkExamApi.loadOpenSessions();
+            setVisible($('btnModeCheck'), this.openCheckSessions.length > 0);
+        } catch {
+            this.openCheckSessions = [];
+            setVisible($('btnModeCheck'), false);
+        }
+    }
+
+    _clearClosesAtWatcher() {
+        if (this._closesAtTimer) {
+            clearInterval(this._closesAtTimer);
+            this._closesAtTimer = null;
+        }
+    }
+
+    _startClosesAtWatcher(closesAt) {
+        this._clearClosesAtWatcher();
+        const end = new Date(closesAt).getTime();
+        this._closesAtTimer = setInterval(() => {
+            if (Date.now() >= end) {
+                this._clearClosesAtWatcher();
+                Toast.warning('Đợt kiểm tra đã kết thúc! Hệ thống tự động nộp bài.');
+                this.submitExam();
+            }
+        }, 1000);
+    }
+
+    _openCheckScreen() {
+        this.selectedCheckBranch = null;
+        this.selectedCheckSession = null;
+        $('checkSessionList').style.display = 'none';
+        $('checkSessionDetail').style.display = 'none';
+        $('checkBranchButtons').innerHTML = '';
+
+        const hasTopic = this.openCheckSessions.some(s => s.type === 'topic');
+        const hasMixed = this.openCheckSessions.some(s => s.type === 'mixed');
+
+        if (!hasTopic && !hasMixed) {
+            $('checkScreenHint').textContent = 'Không có đợt kiểm tra nào đang mở.';
+            this.showScreen('screenCheck');
+            return;
+        }
+
+        $('checkScreenHint').textContent = 'Chọn loại kiểm tra';
+        const container = $('checkBranchButtons');
+        if (hasTopic) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'btn-large btn-blue';
+            btn.textContent = 'Theo lĩnh vực';
+            btn.onclick = () => this._showCheckSessions('topic');
+            container.appendChild(btn);
+        }
+        if (hasMixed) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'btn-large btn-orange';
+            btn.textContent = 'Trộn tổng hợp';
+            btn.onclick = () => this._showCheckSessions('mixed');
+            container.appendChild(btn);
+        }
+        this.showScreen('screenCheck');
+    }
+
+    _showCheckSessions(branch) {
+        this.selectedCheckBranch = branch;
+        const sessions = this.openCheckSessions.filter(s => s.type === branch);
+        $('checkBranchButtons').style.display = 'none';
+        $('checkScreenHint').textContent =
+            branch === 'mixed' ? 'Trộn tổng hợp' : 'Theo lĩnh vực';
+
+        const listEl = $('checkSessionList');
+        listEl.style.display = 'block';
+        listEl.innerHTML = '';
+
+        if (branch === 'mixed' && sessions.length === 1) {
+            this._selectCheckSession(sessions[0]);
+            return;
+        }
+
+        sessions.forEach(session => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'btn-toolbar btn-blue';
+            btn.style.margin = '6px 0';
+            btn.style.width = '100%';
+            btn.textContent =
+                session.type === 'mixed'
+                    ? 'Trộn tổng hợp'
+                    : session.topicTitle || `Lĩnh vực #${session.topicId}`;
+            btn.onclick = () => this._selectCheckSession(session);
+            listEl.appendChild(btn);
+        });
+    }
+
+  async _selectCheckSession(session) {
+        this.selectedCheckSession = session;
+        $('checkSessionList').style.display = 'none';
+        $('checkSessionDetail').style.display = 'block';
+
+        const title =
+            session.type === 'mixed'
+                ? 'Kiểm tra — Trộn tổng hợp'
+                : `Kiểm tra — ${session.topicTitle || 'Lĩnh vực'}`;
+        $('checkSessionTitle').textContent = title;
+        $('checkSessionMeta').textContent =
+            `${session.questionsPerSet} câu · ${session.durationMinutes} phút · Đóng: ${formatDateTime(new Date(session.closesAt))}`;
+
+        const blockedEl = $('checkSessionBlocked');
+        const startBtn = $('btnStartCheck');
+        blockedEl.style.display = 'none';
+        startBtn.disabled = true;
+
+        try {
+            const readiness = await checkExamApi.getReadiness(session.id);
+            if (readiness.alreadyCompleted) {
+                blockedEl.textContent = 'Bạn đã hoàn thành đợt kiểm tra này.';
+                blockedEl.style.display = 'block';
+                return;
+            }
+            if (!readiness.canStart) {
+                blockedEl.textContent = readiness.reason || 'Không thể bắt đầu làm bài.';
+                blockedEl.style.display = 'block';
+                return;
+            }
+            startBtn.disabled = false;
+            startBtn.onclick = () => this._startCheckExam(session.id);
+        } catch (err) {
+            blockedEl.textContent = err.message || 'Không kiểm tra được điều kiện làm bài.';
+            blockedEl.style.display = 'block';
+        }
+    }
+
+    async _startCheckExam(sessionId) {
+        showLoading('Đang tải bộ đề...');
+        try {
+            const payload = await checkExamApi.startSession(sessionId);
+            const questions = (payload.questions || []).map(q => {
+                prepareQuestion(q);
+                return q;
+            });
+            if (!questions.length) {
+                return Toast.error('Bộ đề trống.');
+            }
+
+            store.setState({
+                checkSessionId: sessionId,
+                checkClosesAt: payload.closesAt,
+                checkSessionType: payload.session?.type
+            });
+
+            this._startQuizSession({
+                mode: QUIZ_MODES.CHECK,
+                quizData: { title: payload.title, questions },
+                titleSuffix: ' (Kiểm tra)',
+                showTimer: true,
+                timerMinutes: payload.durationMinutes
+            });
+            this._startClosesAtWatcher(payload.closesAt);
+        } catch (err) {
+            handleError(err, { context: 'QuizController._startCheckExam', fallbackKey: 'NETWORK' });
+        } finally {
+            hideLoading();
         }
     }
 
@@ -581,7 +793,7 @@ export class QuizController {
         setVisible(this.timerBox, true, 'block');
         setVisible(this.btnSubmitExam, true);
         if (this.btnSubmitExam) {
-            const isExam = mode === QUIZ_MODES.EXAM;
+            const isExam = mode === QUIZ_MODES.EXAM || mode === QUIZ_MODES.CHECK;
             this.btnSubmitExam.textContent = isExam ? 'Nộp bài' : 'Nộp đáp án';
             this.btnSubmitExam.classList.toggle('btn-submit-review', !isExam);
             this.btnSubmitExam.disabled = true;
@@ -656,6 +868,8 @@ export class QuizController {
     _bindEvents() {
         this._bindClick('btnModeReview', () => this._startGeneralReview());
         this._bindClick('btnModeExam', () => this.showScreen('screenSetup'));
+        this._bindClick('btnModeCheck', () => this._openCheckScreen());
+        this._bindClick('btnBackHomeFromCheck', () => this.showScreen('screenHome'));
         this._bindClick('btnModeHistory', () => this._showExamHistory());
         this._bindClick('btnBackHomeFromHistory', () => this.showScreen('screenHome'));
         this._bindClick('btnBackHomeFromSetup', () => this.showScreen('screenHome'));

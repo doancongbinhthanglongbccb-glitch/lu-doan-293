@@ -1,0 +1,56 @@
+import { Router } from 'express';
+import { body, param } from 'express-validator';
+import * as examController from '../controllers/exam.controller.js';
+import { validate } from '../middleware/validate.js';
+import { requireAuth } from '../middleware/require-auth.js';
+import { requireAdmin } from '../middleware/require-admin.js';
+
+const router = Router();
+const idParam = param('id').isInt({ min: 1 }).withMessage('ID đợt không hợp lệ.');
+
+router.use(requireAuth);
+
+router.get('/sessions/open', examController.listOpenSessions);
+router.get('/sessions/:id/readiness', validate([idParam]), examController.getReadiness);
+router.post('/sessions/:id/start', validate([idParam]), examController.startSession);
+router.post(
+    '/sessions/:id/submit',
+    validate([
+        idParam,
+        body('score').isFloat({ min: 0 }).withMessage('Điểm không hợp lệ.'),
+        body('total').isInt({ min: 1 }).withMessage('Tổng số câu không hợp lệ.')
+    ]),
+    examController.submitSession
+);
+
+router.get('/sessions', requireAdmin, examController.listSessionsAdmin);
+router.post(
+    '/sessions',
+    requireAdmin,
+    validate([
+        body('battalionId').isInt({ min: 1 }),
+        body('type').isIn(['topic', 'mixed']),
+        body('questionsPerSet').isInt({ min: 1 }),
+        body('numberOfSets').isInt({ min: 1 }),
+        body('durationMinutes').isInt({ min: 1 }),
+        body('opensAt').notEmpty(),
+        body('closesAt').notEmpty()
+    ]),
+    examController.createSession
+);
+router.patch('/sessions/:id', requireAdmin, validate([idParam]), examController.updateSession);
+router.post(
+    '/sessions/:id/open',
+    requireAdmin,
+    validate([idParam]),
+    examController.openSession
+);
+router.post('/sessions/:id/close', requireAdmin, validate([idParam]), examController.closeSession);
+router.post(
+    '/sessions/:id/regenerate',
+    requireAdmin,
+    validate([idParam]),
+    examController.regenerateSession
+);
+
+export default router;

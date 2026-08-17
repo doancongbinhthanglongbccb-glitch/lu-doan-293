@@ -19,7 +19,11 @@ router.patch(
     validate([
         body('practiceMixedQuestionCount')
             .isInt({ min: 1 })
-            .withMessage('Số câu ôn tập tổng hợp phải là số nguyên dương.')
+            .withMessage('Số câu ôn tập tổng hợp phải là số nguyên dương.'),
+        body('examTimeBufferMinutes')
+            .optional()
+            .isInt({ min: 1 })
+            .withMessage('Buffer thời gian phải là số nguyên dương.')
     ]),
     quizController.patchQuizSettings
 );

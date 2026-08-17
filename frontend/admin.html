@@ -27,6 +27,7 @@
             <button type="button" class="admin-section-btn active" data-section="questions" role="tab" aria-selected="true">Quản lý câu hỏi</button>
             <button type="button" class="admin-section-btn" data-section="users" role="tab" aria-selected="false">Quản lý người dùng</button>
             <button type="button" class="admin-section-btn" data-section="settings" role="tab" aria-selected="false">Cài đặt</button>
+            <button type="button" class="admin-section-btn" data-section="exam" role="tab" aria-selected="false">Đợt kiểm tra</button>
             <button type="button" class="admin-section-btn" data-section="history" role="tab" aria-selected="false">Lịch sử thi</button>
         </nav>
 
@@ -198,6 +199,13 @@
                     <button type="button" id="btnSaveQuizSettings" class="btn-toolbar btn-blue">Lưu cài đặt</button>
                 </div>
 
+                <div class="admin-settings-form admin-settings-form-buffer">
+                    <div class="input-group">
+                        <label for="examTimeBufferMinutes">Buffer thời gian kiểm tra (phút)</label>
+                        <input type="number" id="examTimeBufferMinutes" min="1" step="1" class="admin-search-input">
+                    </div>
+                </div>
+
                 <header class="admin-toolbar admin-toolbar-sub">
                     <div class="toolbar-heading">
                         <h2 class="toolbar-title">Tiểu đoàn</h2>
@@ -220,6 +228,38 @@
                                 </tr>
                             </thead>
                             <tbody id="battalionTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PANEL: ĐỢT KIỂM TRA -->
+        <div id="panelExam" class="admin-section-panel" role="tabpanel">
+            <div class="admin-panel-inner">
+                <header class="admin-toolbar">
+                    <div class="toolbar-heading">
+                        <h1 class="toolbar-title">Đợt kiểm tra</h1>
+                        <p class="toolbar-desc">Tạo, mở/đóng đợt và tái tạo bộ đề</p>
+                    </div>
+                    <div class="toolbar-actions">
+                        <button type="button" id="btnAddExamSession" class="btn-toolbar btn-orange">+ Tạo đợt</button>
+                    </div>
+                </header>
+                <div class="admin-panel-body">
+                    <div class="table-wrap">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>Tiểu đoàn</th>
+                                    <th>Loại</th>
+                                    <th>Câu/bộ</th>
+                                    <th>Mở — Đóng</th>
+                                    <th>Trạng thái</th>
+                                    <th>Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody id="examSessionTableBody"></tbody>
                         </table>
                     </div>
                 </div>
@@ -335,6 +375,54 @@
             <div class="modal-actions">
                 <button type="button" id="btnCancelResetPwd" class="btn-nav">Hủy</button>
                 <button type="button" id="btnConfirmResetPwd" class="btn-nav btn-modal-primary">Reset</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Exam Session -->
+    <div class="modal" id="examSessionModal">
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <span class="modal-title">Tạo đợt kiểm tra</span>
+            </div>
+            <div class="input-group">
+                <label for="examSessionBattalion">Tiểu đoàn</label>
+                <select id="examSessionBattalion"></select>
+            </div>
+            <div class="input-group">
+                <label for="examSessionType">Loại</label>
+                <select id="examSessionType">
+                    <option value="topic">Theo lĩnh vực</option>
+                    <option value="mixed">Trộn tổng hợp</option>
+                </select>
+            </div>
+            <div class="input-group" id="examSessionTopicGroup">
+                <label for="examSessionTopic">Lĩnh vực</label>
+                <select id="examSessionTopic"></select>
+            </div>
+            <div class="input-group">
+                <label for="examSessionQPerSet">Số câu / bộ</label>
+                <input type="number" id="examSessionQPerSet" min="1" value="30">
+            </div>
+            <div class="input-group">
+                <label for="examSessionNumSets">Số bộ (N)</label>
+                <input type="number" id="examSessionNumSets" min="1" value="5">
+            </div>
+            <div class="input-group">
+                <label for="examSessionDuration">Thời gian làm bài (phút)</label>
+                <input type="number" id="examSessionDuration" min="1" value="30">
+            </div>
+            <div class="input-group">
+                <label for="examSessionOpensAt">Mở đợt</label>
+                <input type="datetime-local" id="examSessionOpensAt">
+            </div>
+            <div class="input-group">
+                <label for="examSessionClosesAt">Đóng đợt</label>
+                <input type="datetime-local" id="examSessionClosesAt">
+            </div>
+            <div class="modal-actions">
+                <button type="button" id="btnCancelExamSession" class="btn-nav">Hủy</button>
+                <button type="button" id="btnSaveExamSession" class="btn-nav btn-modal-primary">Tạo</button>
             </div>
         </div>
     </div>

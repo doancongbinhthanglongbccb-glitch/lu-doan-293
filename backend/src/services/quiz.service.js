@@ -1,6 +1,7 @@
 import * as quizModel from '../models/quiz.model.js';
 import * as wrongModel from '../models/wrong-answer.model.js';
 import * as historyModel from '../models/quiz-history.model.js';
+import * as examService from './exam.service.js';
 
 export function getQuiz() {
     return quizModel.getQuizData();
@@ -136,5 +137,7 @@ export function importQuestionsToTopic(topicId, questions) {
         throw err;
     }
 
-    return quizModel.importQuestionsToTopic(topicId, questions);
+    const result = quizModel.importQuestionsToTopic(topicId, questions);
+    examService.markSessionsNeedRegeneration(topicId);
+    return result;
 }

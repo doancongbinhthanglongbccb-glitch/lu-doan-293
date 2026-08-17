@@ -24,6 +24,7 @@ import { handleError } from '../../utils/errors.js';
 import { renderAdminHistoryTable } from '../quiz/exam-history-renderer.js';
 import { apiClient } from '../../services/api/api-client.js';
 import { unwrapPayload, pickBattalions, pickStats, pickSettings } from '../../services/api/api-response.js';
+import * as checkExamApi from '../../services/exam/check-exam-api.js';
 import {
     isTopicParent,
     isTopicLeaf,
@@ -32,7 +33,8 @@ import {
     topicQuestionCount,
     countLeafTopics,
     countParentTopics,
-    findTopicTitleConflict
+    findTopicTitleConflict,
+    listSelectableLeaves
 } from '../../core/topic-tree.js';
 
 /**
@@ -53,6 +55,8 @@ export class AdminController {
         this._historySearchTimer = null;
         /** @type {object[]} */
         this.battalions = [];
+        /** @type {object[]} */
+        this.examSessions = [];
         this.userBattalionFilter = '';
     }
 
@@ -65,6 +69,7 @@ export class AdminController {
         this.bindEvents();
         this.bindUserEvents();
         this.bindBattalionEvents();
+        this.bindExamEvents();
         this.bindHistoryEvents();
 
         showLoading('Đang tải...');
@@ -789,6 +794,7 @@ export class AdminController {
         $('panelQuestions').classList.toggle('active', section === 'questions');
         $('panelUsers').classList.toggle('active', section === 'users');
         $('panelSettings').classList.toggle('active', section === 'settings');
+        $('panelExam').classList.toggle('active', section === 'exam');
         $('panelHistory').classList.toggle('active', section === 'history');
         if (section === 'users') this.renderUserTable();
         if (section === 'settings') {
@@ -796,6 +802,7 @@ export class AdminController {
             this.renderQuizSettings();
             this.renderBattalionTable();
         }
+        if (section === 'exam') this.loadExamSessions();
         if (section === 'history') this.loadHistoryTable();
     }
 
@@ -1197,21 +1204,31 @@ export class AdminController {
         if (!input || !this.quizData) return;
         const count = this.quizData.settings?.practiceMixedQuestionCount;
         input.value = count > 0 ? String(count) : '';
+        const bufferInput = $('examTimeBufferMinutes');
+        if (bufferInput) {
+            const buffer = this.quizData.settings?.examTimeBufferMinutes;
+            bufferInput.value = buffer > 0 ? String(buffer) : '';
+        }
     }
 
     async saveQuizSettings() {
         const input = $('practiceMixedQuestionCount');
+        const bufferInput = $('examTimeBufferMinutes');
         if (!input) return;
         const count = parseInt(input.value, 10);
+        const buffer = bufferInput ? parseInt(bufferInput.value, 10) : undefined;
         if (!count || count < 1) {
             return Toast.warning('Số câu phải là số nguyên dương.');
+        }
+        if (bufferInput && (!buffer || buffer < 1)) {
+            return Toast.warning('Buffer thời gian phải là số nguyên dương.');
         }
 
         showLoading('Đang lưu...');
         try {
-            const { data } = await apiClient.patch('/quiz/settings', {
-                practiceMixedQuestionCount: count
-            });
+            const payload = { practiceMixedQuestionCount: count };
+            if (buffer) payload.examTimeBufferMinutes = buffer;
+            const { data } = await apiClient.patch('/quiz/settings', payload);
             const settings = pickSettings(data) || { practiceMixedQuestionCount: count };
             if (this.quizData) {
                 this.quizData.settings = settings;
@@ -1222,6 +1239,181 @@ export class AdminController {
         } finally {
             hideLoading();
         }
+    }
+
+    async loadExamSessions() {
+        try {
+            this.examSessions = await checkExamApi.loadSessionsAdmin();
+            this.renderExamSessionTable();
+        } catch (err) {
+            handleError(err, { context: 'AdminController.loadExamSessions', fallbackKey: 'NETWORK' });
+        }
+    }
+
+    renderExamSessionTable() {
+        const tbody = $('examSessionTableBody');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+        const sessions = this.examSessions || [];
+        if (!sessions.length) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">Chưa có đợt kiểm tra.</td></tr>';
+            return;
+        }
+        sessions.forEach(s => {
+            const tr = document.createElement('tr');
+            const typeLabel = s.type === 'mixed' ? 'Trộn' : s.topicTitle || 'Lĩnh vực';
+            let actions = '';
+            if (s.status === 'draft') {
+                actions += `<button class="btn-sm btn-green exam-open" data-id="${s.id}">Mở</button> `;
+            }
+            if (s.status === 'open') {
+                actions += `<button class="btn-sm btn-delete exam-close" data-id="${s.id}">Đóng</button> `;
+            }
+            if (s.status !== 'open') {
+                actions += `<button class="btn-sm btn-blue exam-regen" data-id="${s.id}">Tái tạo đề</button> `;
+            }
+            const regenBadge = s.needsRegeneration
+                ? '<span class="status-badge status-pending">Cần tái tạo</span>'
+                : '';
+            tr.innerHTML =
+                `<td>${escapeAttr(s.battalionName || '')}</td>` +
+                `<td>${escapeAttr(typeLabel)}</td>` +
+                `<td>${s.questionsPerSet} × ${s.numberOfSets} bộ</td>` +
+                `<td>${escapeAttr(s.opensAt)} → ${escapeAttr(s.closesAt)}</td>` +
+                `<td><span class="status-badge">${s.status}</span> ${regenBadge}</td>` +
+                `<td class="actions-cell">${actions}</td>`;
+            tbody.appendChild(tr);
+        });
+        tbody.querySelectorAll('.exam-open').forEach(btn => {
+            btn.onclick = () => this.openExamSession(parseInt(btn.dataset.id, 10));
+        });
+        tbody.querySelectorAll('.exam-close').forEach(btn => {
+            btn.onclick = () => this.closeExamSession(parseInt(btn.dataset.id, 10));
+        });
+        tbody.querySelectorAll('.exam-regen').forEach(btn => {
+            btn.onclick = () => this.regenerateExamSession(parseInt(btn.dataset.id, 10));
+        });
+    }
+
+    openExamSessionModal() {
+        const battalionSelect = $('examSessionBattalion');
+        battalionSelect.innerHTML = '';
+        this.battalions
+            .filter(b => b.isActive)
+            .forEach(b => {
+                const opt = document.createElement('option');
+                opt.value = String(b.id);
+                opt.textContent = b.name;
+                battalionSelect.appendChild(opt);
+            });
+        const topicSelect = $('examSessionTopic');
+        topicSelect.innerHTML = '';
+        listSelectableLeaves(this.quizData).forEach(item => {
+            const opt = document.createElement('option');
+            opt.value = String(item.topic.id);
+            opt.textContent = item.label;
+            topicSelect.appendChild(opt);
+        });
+        $('examSessionType').onchange = () => {
+            $('examSessionTopicGroup').hidden = $('examSessionType').value === 'mixed';
+        };
+        $('examSessionTopicGroup').hidden = $('examSessionType').value === 'mixed';
+        ModalManager.open('examSessionModal');
+    }
+
+    async saveExamSession() {
+        const type = $('examSessionType').value;
+        const body = {
+            battalionId: parseInt($('examSessionBattalion').value, 10),
+            type,
+            topicId: type === 'topic' ? parseInt($('examSessionTopic').value, 10) : null,
+            questionsPerSet: parseInt($('examSessionQPerSet').value, 10),
+            numberOfSets: parseInt($('examSessionNumSets').value, 10),
+            durationMinutes: parseInt($('examSessionDuration').value, 10),
+            opensAt: new Date($('examSessionOpensAt').value).toISOString(),
+            closesAt: new Date($('examSessionClosesAt').value).toISOString()
+        };
+        showLoading('Đang tạo...');
+        try {
+            await checkExamApi.createSessionAdmin(body);
+            ModalManager.close('examSessionModal');
+            Toast.success('Đã tạo đợt kiểm tra.');
+            await this.loadExamSessions();
+        } catch (err) {
+            Toast.error(err.message || 'Tạo đợt thất bại.');
+        } finally {
+            hideLoading();
+        }
+    }
+
+    openExamSession(id) {
+        const session = (this.examSessions || []).find(s => s.id === id);
+        const needsConfirm = session?.needsRegeneration;
+        const run = async (confirmRegenerate = false) => {
+            showLoading('Đang mở đợt...');
+            try {
+                await checkExamApi.openSessionAdmin(id, confirmRegenerate);
+                Toast.success('Đã mở đợt kiểm tra.');
+                await this.loadExamSessions();
+            } catch (err) {
+                if (String(err.message).includes('tái tạo')) {
+                    ModalManager.confirm({
+                        title: 'Tái tạo bộ đề',
+                        message:
+                            'Ngân hàng câu hỏi đã thay đổi. Cần tái tạo bộ đề trước khi mở đợt. Tiếp tục?',
+                        onConfirm: () => run(true)
+                    });
+                } else {
+                    Toast.error(err.message || 'Mở đợt thất bại.');
+                }
+            } finally {
+                hideLoading();
+            }
+        };
+        if (needsConfirm) {
+            ModalManager.confirm({
+                title: 'Tái tạo bộ đề',
+                message: 'Đợt được đánh dấu cần tái tạo bộ đề. Xác nhận mở và tái tạo?',
+                onConfirm: () => run(true)
+            });
+        } else {
+            run(false);
+        }
+    }
+
+    async closeExamSession(id) {
+        showLoading('Đang đóng đợt...');
+        try {
+            await checkExamApi.closeSessionAdmin(id);
+            Toast.success('Đã đóng đợt.');
+            await this.loadExamSessions();
+        } catch (err) {
+            Toast.error(err.message || 'Đóng đợt thất bại.');
+        } finally {
+            hideLoading();
+        }
+    }
+
+    async regenerateExamSession(id) {
+        showLoading('Đang tái tạo...');
+        try {
+            await checkExamApi.regenerateSessionAdmin(id);
+            Toast.success('Đã tái tạo bộ đề.');
+            await this.loadExamSessions();
+        } catch (err) {
+            Toast.error(err.message || 'Tái tạo thất bại.');
+        } finally {
+            hideLoading();
+        }
+    }
+
+    bindExamEvents() {
+        const addBtn = $('btnAddExamSession');
+        if (addBtn) addBtn.onclick = () => this.openExamSessionModal();
+        const cancelBtn = $('btnCancelExamSession');
+        if (cancelBtn) cancelBtn.onclick = () => ModalManager.close('examSessionModal');
+        const saveBtn = $('btnSaveExamSession');
+        if (saveBtn) saveBtn.onclick = () => this.saveExamSession();
     }
 
     // ——— Exam history (admin) ———

@@ -39,7 +39,8 @@ CREATE TABLE IF NOT EXISTS quiz_meta (
     title       TEXT NOT NULL DEFAULT 'Hệ thống ôn tập trắc nghiệm',
     updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
     seed_applied INTEGER NOT NULL DEFAULT 0,
-    practice_mixed_question_count INTEGER NOT NULL DEFAULT 30
+    practice_mixed_question_count INTEGER NOT NULL DEFAULT 30,
+    exam_time_buffer_minutes INTEGER NOT NULL DEFAULT 30
 );
 
 CREATE TABLE IF NOT EXISTS topics (
@@ -84,3 +85,54 @@ CREATE TABLE IF NOT EXISTS wrong_answers (
 );
 
 CREATE INDEX IF NOT EXISTS idx_wrong_answers_user ON wrong_answers(user_id);
+
+CREATE TABLE IF NOT EXISTS exam_sessions (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    battalion_id        INTEGER NOT NULL REFERENCES battalions(id),
+    type                TEXT NOT NULL CHECK(type IN ('topic', 'mixed')),
+    topic_id            INTEGER REFERENCES topics(id),
+    questions_per_set   INTEGER NOT NULL,
+    number_of_sets      INTEGER NOT NULL,
+    duration_minutes    INTEGER NOT NULL,
+    opens_at            TEXT NOT NULL,
+    closes_at           TEXT NOT NULL,
+    status              TEXT NOT NULL DEFAULT 'draft'
+                        CHECK(status IN ('draft', 'open', 'closed')),
+    needs_regeneration  INTEGER NOT NULL DEFAULT 0,
+    created_by          INTEGER NOT NULL REFERENCES users(id),
+    created_at          TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_exam_sessions_battalion ON exam_sessions(battalion_id);
+CREATE INDEX IF NOT EXISTS idx_exam_sessions_status ON exam_sessions(status);
+
+CREATE TABLE IF NOT EXISTS exam_assignments (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id      INTEGER NOT NULL REFERENCES exam_sessions(id) ON DELETE CASCADE,
+    user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    question_set    TEXT NOT NULL,
+    status          TEXT NOT NULL DEFAULT 'assigned'
+                    CHECK(status IN ('assigned', 'in_progress', 'completed')),
+    assigned_at     TEXT NOT NULL DEFAULT (datetime('now')),
+    started_at      TEXT,
+    completed_at    TEXT,
+    UNIQUE(session_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_exam_assignments_session ON exam_assignments(session_id);
+CREATE INDEX IF NOT EXISTS idx_exam_assignments_user ON exam_assignments(user_id);
+
+CREATE TABLE IF NOT EXISTS exam_results (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    assignment_id   INTEGER NOT NULL REFERENCES exam_assignments(id) ON DELETE CASCADE,
+    user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    session_id      INTEGER NOT NULL REFERENCES exam_sessions(id) ON DELETE CASCADE,
+    score           REAL,
+    total           INTEGER,
+    duration_sec    INTEGER,
+    detail          TEXT,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_exam_results_user ON exam_results(user_id);
+CREATE INDEX IF NOT EXISTS idx_exam_results_session ON exam_results(session_id);

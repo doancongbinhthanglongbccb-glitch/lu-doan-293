@@ -1,5 +1,9 @@
 import { getDb } from '../../database/connection.js';
-import { DEFAULT_QUIZ_TITLE, DEFAULT_PRACTICE_MIXED_QUESTION_COUNT } from '../config/constants.js';
+import {
+    DEFAULT_QUIZ_TITLE,
+    DEFAULT_PRACTICE_MIXED_QUESTION_COUNT,
+    DEFAULT_EXAM_TIME_BUFFER_MINUTES
+} from '../config/constants.js';
 import { runTransaction } from '../utils/transaction.js';
 import { sanitizeQuizDataHtml } from '../utils/sanitize-html.js';
 
@@ -123,40 +127,106 @@ function syncTopicQuestions(db, topicId, questions) {
  */
 export function getQuizSettings() {
     const row = getDb()
-        .prepare('SELECT practice_mixed_question_count FROM quiz_meta WHERE id = 1')
+        .prepare('SELECT practice_mixed_question_count, exam_time_buffer_minutes FROM quiz_meta WHERE id = 1')
         .get();
     const count = row?.practice_mixed_question_count;
+    const buffer = row?.exam_time_buffer_minutes;
     return {
         practiceMixedQuestionCount:
-            count > 0 ? count : DEFAULT_PRACTICE_MIXED_QUESTION_COUNT
+            count > 0 ? count : DEFAULT_PRACTICE_MIXED_QUESTION_COUNT,
+        examTimeBufferMinutes: buffer > 0 ? buffer : DEFAULT_EXAM_TIME_BUFFER_MINUTES
     };
 }
 
 /**
- * @param {{ practiceMixedQuestionCount: number }} data
- * @returns {{ practiceMixedQuestionCount: number }}
+ * @param {{ practiceMixedQuestionCount?: number, examTimeBufferMinutes?: number }} data
+ * @returns {{ practiceMixedQuestionCount: number, examTimeBufferMinutes: number }}
  */
 export function updateQuizSettings(data) {
-    const count = parseInt(data.practiceMixedQuestionCount, 10);
-    if (!count || count < 1) {
-        const err = new Error('Số câu ôn tập tổng hợp phải là số nguyên dương.');
-        err.status = 400;
-        throw err;
+    const fields = [];
+    const values = [];
+
+    if (data.practiceMixedQuestionCount !== undefined) {
+        const count = parseInt(data.practiceMixedQuestionCount, 10);
+        if (!count || count < 1) {
+            const err = new Error('Số câu ôn tập tổng hợp phải là số nguyên dương.');
+            err.status = 400;
+            throw err;
+        }
+        fields.push('practice_mixed_question_count = ?');
+        values.push(count);
     }
+
+    if (data.examTimeBufferMinutes !== undefined) {
+        const buffer = parseInt(data.examTimeBufferMinutes, 10);
+        if (!buffer || buffer < 1) {
+            const err = new Error('Buffer thời gian kiểm tra phải là số nguyên dương.');
+            err.status = 400;
+            throw err;
+        }
+        fields.push('exam_time_buffer_minutes = ?');
+        values.push(buffer);
+    }
+
+    if (fields.length === 0) return getQuizSettings();
 
     const db = getDb();
     const row = db.prepare('SELECT id FROM quiz_meta WHERE id = 1').get();
     if (!row) {
         db.prepare(
-            'INSERT INTO quiz_meta (id, title, practice_mixed_question_count) VALUES (1, ?, ?)'
-        ).run(DEFAULT_QUIZ_TITLE, count);
+            'INSERT INTO quiz_meta (id, title, practice_mixed_question_count, exam_time_buffer_minutes) VALUES (1, ?, ?, ?)'
+        ).run(
+            DEFAULT_QUIZ_TITLE,
+            data.practiceMixedQuestionCount ?? DEFAULT_PRACTICE_MIXED_QUESTION_COUNT,
+            data.examTimeBufferMinutes ?? DEFAULT_EXAM_TIME_BUFFER_MINUTES
+        );
     } else {
-        db.prepare(
-            "UPDATE quiz_meta SET practice_mixed_question_count = ?, updated_at = datetime('now') WHERE id = 1"
-        ).run(count);
+        fields.push("updated_at = datetime('now')");
+        db.prepare(`UPDATE quiz_meta SET ${fields.join(', ')} WHERE id = 1`).run(...values);
     }
 
     return getQuizSettings();
+}
+
+/**
+ * @param {number|null} topicId
+ * @returns {number[]}
+ */
+export function getQuestionPoolIds(topicId = null) {
+    const db = getDb();
+    if (topicId) {
+        return db
+            .prepare('SELECT id FROM questions WHERE topic_id = ? ORDER BY id ASC')
+            .all(topicId)
+            .map(r => r.id);
+    }
+    return db.prepare('SELECT id FROM questions ORDER BY id ASC').all().map(r => r.id);
+}
+
+/**
+ * @param {number[]} ids
+ * @returns {object[]}
+ */
+export function getQuestionsByDbIds(ids) {
+    if (!ids?.length) return [];
+    const db = getDb();
+    const placeholders = ids.map(() => '?').join(',');
+    const rows = db
+        .prepare(`SELECT id, hash, type, payload FROM questions WHERE id IN (${placeholders})`)
+        .all(...ids);
+    const byId = new Map(
+        rows.map(r => {
+            let payload;
+            try {
+                payload = JSON.parse(r.payload);
+            } catch {
+                payload = { hash: r.hash, type: r.type };
+            }
+            payload.dbId = r.id;
+            return [r.id, payload];
+        })
+    );
+    return ids.map(id => byId.get(id)).filter(Boolean);
 }
 
 /**
