@@ -64,8 +64,10 @@ export const QuizEngine = {
         const leaves = listSelectableLeaves(originalData);
         const item = leaves[leafIndex];
         const topic = clone(item?.topic || { title: '', questions: [] });
-        markQuestionsMul(topic.questions);
-        return { title: item?.label || topic.title, questions: topic.questions || [] };
+        const questions = topic.questions || [];
+        shuffle(questions);
+        questions.forEach(q => prepareQuestion(q));
+        return { title: item?.label || topic.title, questions };
     },
 
     /**

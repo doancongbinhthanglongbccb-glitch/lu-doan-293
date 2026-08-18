@@ -122,17 +122,36 @@ CREATE TABLE IF NOT EXISTS exam_sessions (
 CREATE INDEX IF NOT EXISTS idx_exam_sessions_battalion ON exam_sessions(battalion_id);
 CREATE INDEX IF NOT EXISTS idx_exam_sessions_status ON exam_sessions(status);
 
+CREATE TABLE IF NOT EXISTS exam_session_battalions (
+    session_id      INTEGER NOT NULL REFERENCES exam_sessions(id) ON DELETE CASCADE,
+    battalion_id    INTEGER NOT NULL REFERENCES battalions(id),
+    PRIMARY KEY (session_id, battalion_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_exam_session_battalions_battalion ON exam_session_battalions(battalion_id);
+
+CREATE TABLE IF NOT EXISTS exam_session_sets (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id      INTEGER NOT NULL REFERENCES exam_sessions(id) ON DELETE CASCADE,
+    topic_id        INTEGER REFERENCES topics(id),
+    set_index       INTEGER NOT NULL,
+    question_ids    TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_exam_session_sets_session ON exam_session_sets(session_id);
+
 CREATE TABLE IF NOT EXISTS exam_assignments (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     session_id      INTEGER NOT NULL REFERENCES exam_sessions(id) ON DELETE CASCADE,
     user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    topic_id        INTEGER REFERENCES topics(id),
+    session_set_id  INTEGER REFERENCES exam_session_sets(id),
     question_set    TEXT NOT NULL,
     status          TEXT NOT NULL DEFAULT 'assigned'
                     CHECK(status IN ('assigned', 'in_progress', 'completed')),
     assigned_at     TEXT NOT NULL DEFAULT (datetime('now')),
     started_at      TEXT,
-    completed_at    TEXT,
-    UNIQUE(session_id, user_id)
+    completed_at    TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_exam_assignments_session ON exam_assignments(session_id);
@@ -140,7 +159,7 @@ CREATE INDEX IF NOT EXISTS idx_exam_assignments_user ON exam_assignments(user_id
 
 CREATE TABLE IF NOT EXISTS exam_results (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    assignment_id   INTEGER NOT NULL REFERENCES exam_assignments(id) ON DELETE CASCADE,
+    assignment_id   INTEGER REFERENCES exam_assignments(id) ON DELETE SET NULL,
     user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     session_id      INTEGER NOT NULL REFERENCES exam_sessions(id) ON DELETE CASCADE,
     score           REAL,

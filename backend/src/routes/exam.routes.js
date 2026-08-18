@@ -11,15 +11,14 @@ const idParam = param('id').isInt({ min: 1 }).withMessage('ID đợt không hợ
 router.use(requireAuth);
 
 router.get('/sessions/open', examController.listOpenSessions);
+router.get('/sessions/:id/topics', validate([idParam]), examController.listSessionTopics);
+router.get('/sessions/:id/branches', validate([idParam]), examController.listSessionBranches);
+router.get('/sessions/:id/sets', validate([idParam]), examController.listSessionSets);
 router.get('/sessions/:id/readiness', validate([idParam]), examController.getReadiness);
 router.post('/sessions/:id/start', validate([idParam]), examController.startSession);
 router.post(
     '/sessions/:id/submit',
-    validate([
-        idParam,
-        body('score').isFloat({ min: 0 }).withMessage('Điểm không hợp lệ.'),
-        body('total').isInt({ min: 1 }).withMessage('Tổng số câu không hợp lệ.')
-    ]),
+    validate([idParam]),
     examController.submitSession
 );
 
@@ -28,7 +27,8 @@ router.post(
     '/sessions',
     requireAdmin,
     validate([
-        body('battalionId').isInt({ min: 1 }),
+        body('battalionIds').isArray({ min: 1 }).withMessage('Vui lòng chọn ít nhất một tiểu đoàn.'),
+        body('battalionIds.*').isInt({ min: 1 }),
         body('type').isIn(['topic', 'mixed']),
         body('questionsPerSet').isInt({ min: 1 }),
         body('numberOfSets').isInt({ min: 1 }),

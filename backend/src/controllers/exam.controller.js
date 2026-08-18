@@ -71,8 +71,43 @@ export function listOpenSessions(req, res, next) {
 export function getReadiness(req, res, next) {
     try {
         const sessionId = parseInt(req.params.id, 10);
-        const readiness = examService.getSessionReadiness(sessionId, req.user.id);
+        const topicId = req.query.topicId ? parseInt(req.query.topicId, 10) : undefined;
+        const readiness = examService.getSessionReadiness(sessionId, req.user.id, topicId);
         sendSuccess(res, readiness);
+    } catch (err) {
+        next(err);
+    }
+}
+
+export function listSessionTopics(req, res, next) {
+    try {
+        const sessionId = parseInt(req.params.id, 10);
+        const topics = examService.listSessionTopicsForUser(sessionId, req.user.id);
+        sendSuccess(res, { topics });
+    } catch (err) {
+        next(err);
+    }
+}
+
+export function listSessionBranches(req, res, next) {
+    try {
+        const sessionId = parseInt(req.params.id, 10);
+        const branches = examService.listBranchesForUser(sessionId, req.user.id);
+        sendSuccess(res, branches);
+    } catch (err) {
+        next(err);
+    }
+}
+
+export function listSessionSets(req, res, next) {
+    try {
+        const sessionId = parseInt(req.params.id, 10);
+        const topicId =
+            req.query.topicId != null && req.query.topicId !== ''
+                ? parseInt(req.query.topicId, 10)
+                : null;
+        const sets = examService.listSetsForUser(sessionId, req.user.id, topicId);
+        sendSuccess(res, { sets });
     } catch (err) {
         next(err);
     }
@@ -81,7 +116,7 @@ export function getReadiness(req, res, next) {
 export function startSession(req, res, next) {
     try {
         const sessionId = parseInt(req.params.id, 10);
-        const payload = examService.startSessionForUser(sessionId, req.user.id);
+        const payload = examService.startSessionForUser(sessionId, req.user.id, req.body);
         sendSuccess(res, payload);
     } catch (err) {
         next(err);

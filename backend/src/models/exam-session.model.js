@@ -1,5 +1,6 @@
 import { getDb } from '../../database/connection.js';
 import { EXAM_SESSION_STATUS } from '../config/constants.js';
+import { runTransaction } from '../utils/transaction.js';
 
 /**
  * Admin payload — includes set count and regeneration flags.
@@ -8,10 +9,12 @@ import { EXAM_SESSION_STATUS } from '../config/constants.js';
  */
 export function toPublicSession(row) {
     if (!row) return null;
+    const battalions = row.battalions || [];
     return {
         id: row.id,
-        battalionId: row.battalion_id,
-        battalionName: row.battalion_name ?? null,
+        battalionId: battalions[0]?.id ?? row.battalion_id,
+        battalionIds: battalions.map(b => b.id),
+        battalionName: battalions.map(b => b.name).join(', ') || row.battalion_name || null,
         type: row.type,
         topicId: row.topic_id ?? null,
         topicTitle: row.topic_title ?? null,
@@ -37,8 +40,6 @@ export function toUserSession(row) {
     return {
         id: row.id,
         type: row.type,
-        topicId: row.topic_id ?? null,
-        topicTitle: row.topic_title ?? null,
         questionsPerSet: row.questions_per_set,
         durationMinutes: row.duration_minutes,
         opensAt: row.opens_at,
@@ -74,17 +75,83 @@ export function toPublicAssignment(row) {
  * @param {number} id
  * @returns {object|null}
  */
+export function findBattalionsForSession(sessionId) {
+    return getDb()
+        .prepare(
+            `SELECT b.id, b.name
+             FROM exam_session_battalions sb
+             INNER JOIN battalions b ON b.id = sb.battalion_id
+             WHERE sb.session_id = ?
+             ORDER BY b.name ASC`
+        )
+        .all(sessionId);
+}
+
+function withBattalions(row) {
+    if (!row) return null;
+    const battalions = findBattalionsForSession(row.id);
+    return {
+        ...row,
+        battalions,
+        battalion_id: battalions[0]?.id ?? row.battalion_id,
+        battalion_name: battalions.map(b => b.name).join(', ') || row.battalion_name || null
+    };
+}
+
+export function replaceSessionBattalions(sessionId, battalionIds) {
+    const db = getDb();
+    db.prepare('DELETE FROM exam_session_battalions WHERE session_id = ?').run(sessionId);
+    const insert = db.prepare(
+        'INSERT INTO exam_session_battalions (session_id, battalion_id) VALUES (?, ?)'
+    );
+    battalionIds.forEach(id => insert.run(sessionId, id));
+}
+
+export function sessionHasBattalion(sessionId, battalionId) {
+    return !!getDb()
+        .prepare(
+            'SELECT 1 FROM exam_session_battalions WHERE session_id = ? AND battalion_id = ?'
+        )
+        .get(sessionId, battalionId);
+}
+
+/**
+ * Open sessions that already include any of these battalions.
+ * @param {number[]} battalionIds
+ * @param {number|null} [excludeSessionId]
+ * @returns {{ id: number, battalion_name: string }[]}
+ */
+export function findOpenConflicts(battalionIds, excludeSessionId = null) {
+    if (!battalionIds?.length) return [];
+    const placeholders = battalionIds.map(() => '?').join(',');
+    const params = [...battalionIds, EXAM_SESSION_STATUS.OPEN];
+    let sql = `SELECT DISTINCT s.id, b.name AS battalion_name
+               FROM exam_sessions s
+               INNER JOIN exam_session_battalions sb ON sb.session_id = s.id
+               INNER JOIN battalions b ON b.id = sb.battalion_id
+               WHERE sb.battalion_id IN (${placeholders})
+                 AND s.status = ?`;
+    if (excludeSessionId) {
+        sql += ' AND s.id != ?';
+        params.push(excludeSessionId);
+    }
+    return getDb().prepare(sql).all(...params);
+}
+
+/**
+ * @param {number} id
+ * @returns {object|null}
+ */
 export function findById(id) {
     const row = getDb()
         .prepare(
-            `SELECT s.*, b.name AS battalion_name, t.title AS topic_title
+            `SELECT s.*, t.title AS topic_title
              FROM exam_sessions s
-             LEFT JOIN battalions b ON b.id = s.battalion_id
              LEFT JOIN topics t ON t.id = s.topic_id
              WHERE s.id = ?`
         )
         .get(id);
-    return row || null;
+    return withBattalions(row);
 }
 
 /**
@@ -93,13 +160,13 @@ export function findById(id) {
 export function findAll() {
     return getDb()
         .prepare(
-            `SELECT s.*, b.name AS battalion_name, t.title AS topic_title
+            `SELECT s.*, t.title AS topic_title
              FROM exam_sessions s
-             LEFT JOIN battalions b ON b.id = s.battalion_id
              LEFT JOIN topics t ON t.id = s.topic_id
              ORDER BY s.created_at DESC`
         )
-        .all();
+        .all()
+        .map(withBattalions);
 }
 
 /**
@@ -109,17 +176,16 @@ export function findAll() {
 export function findOpenForBattalion(battalionId) {
     return getDb()
         .prepare(
-            `SELECT s.*, b.name AS battalion_name, t.title AS topic_title
+            `SELECT s.*, t.title AS topic_title
              FROM exam_sessions s
-             LEFT JOIN battalions b ON b.id = s.battalion_id
+             INNER JOIN exam_session_battalions sb ON sb.session_id = s.id
              LEFT JOIN topics t ON t.id = s.topic_id
-             WHERE s.battalion_id = ?
+             WHERE sb.battalion_id = ?
                AND s.status = ?
-               AND datetime(s.opens_at) <= datetime('now')
-               AND datetime(s.closes_at) > datetime('now')
              ORDER BY s.closes_at ASC`
         )
-        .all(battalionId, EXAM_SESSION_STATUS.OPEN);
+        .all(battalionId, EXAM_SESSION_STATUS.OPEN)
+        .map(withBattalions);
 }
 
 /**
@@ -127,26 +193,32 @@ export function findOpenForBattalion(battalionId) {
  * @returns {object}
  */
 export function createSession(data) {
-    const result = getDb()
-        .prepare(
-            `INSERT INTO exam_sessions (
-                battalion_id, type, topic_id, questions_per_set, number_of_sets,
-                duration_minutes, opens_at, closes_at, status, needs_regeneration, created_by
-             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`
-        )
-        .run(
-            data.battalionId,
-            data.type,
-            data.topicId ?? null,
-            data.questionsPerSet,
-            data.numberOfSets,
-            data.durationMinutes,
-            data.opensAt,
-            data.closesAt,
-            EXAM_SESSION_STATUS.DRAFT,
-            data.createdBy
-        );
-    return findById(result.lastInsertRowid);
+    const battalionIds = data.battalionIds;
+    let newId;
+    runTransaction(getDb(), () => {
+        const result = getDb()
+            .prepare(
+                `INSERT INTO exam_sessions (
+                    battalion_id, type, topic_id, questions_per_set, number_of_sets,
+                    duration_minutes, opens_at, closes_at, status, needs_regeneration, created_by
+                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`
+            )
+            .run(
+                battalionIds[0],
+                data.type,
+                data.topicId ?? null,
+                data.questionsPerSet,
+                data.numberOfSets,
+                data.durationMinutes,
+                data.opensAt,
+                data.closesAt,
+                EXAM_SESSION_STATUS.DRAFT,
+                data.createdBy
+            );
+        newId = Number(result.lastInsertRowid);
+        replaceSessionBattalions(newId, battalionIds);
+    });
+    return findById(newId);
 }
 
 /**
@@ -180,26 +252,36 @@ export function updateSession(id, fields) {
         }
     }
 
-    if (!sets.length) return findById(id);
+    if (!sets.length && fields.battalionIds === undefined) return findById(id);
 
-    values.push(id);
-    getDb()
-        .prepare(`UPDATE exam_sessions SET ${sets.join(', ')} WHERE id = ?`)
-        .run(...values);
+    if (sets.length) {
+        values.push(id);
+        getDb()
+            .prepare(`UPDATE exam_sessions SET ${sets.join(', ')} WHERE id = ?`)
+            .run(...values);
+    }
+
+    if (Array.isArray(fields.battalionIds) && fields.battalionIds.length) {
+        replaceSessionBattalions(id, fields.battalionIds);
+        getDb()
+            .prepare('UPDATE exam_sessions SET battalion_id = ? WHERE id = ?')
+            .run(fields.battalionIds[0], id);
+    }
+
     return findById(id);
 }
 
 /**
  * @param {number} topicId
  */
-export function markNeedsRegenerationForTopic(topicId) {
+export function markNeedsRegenerationForTopic(_topicId) {
     getDb()
         .prepare(
             `UPDATE exam_sessions
              SET needs_regeneration = 1
-             WHERE type = 'topic' AND topic_id = ? AND status != ?`
+             WHERE status != ?`
         )
-        .run(topicId, EXAM_SESSION_STATUS.OPEN);
+        .run(EXAM_SESSION_STATUS.OPEN);
 }
 
 /**
@@ -209,30 +291,166 @@ export function deleteAssignmentsForSession(sessionId) {
     getDb().prepare('DELETE FROM exam_assignments WHERE session_id = ?').run(sessionId);
 }
 
+export function deleteSetsForSession(sessionId) {
+    getDb().prepare('DELETE FROM exam_session_sets WHERE session_id = ?').run(sessionId);
+}
+
 /**
  * @param {number} sessionId
- * @param {number} userId
- * @param {number[]} questionSet
+ * @param {number|null} topicId
+ * @param {number} setIndex
+ * @param {number[]} questionIds
+ * @returns {number} new set id
  */
-export function createAssignment(sessionId, userId, questionSet) {
+export function insertSessionSet(sessionId, topicId, setIndex, questionIds) {
+    const result = getDb()
+        .prepare(
+            `INSERT INTO exam_session_sets (session_id, topic_id, set_index, question_ids)
+             VALUES (?, ?, ?, ?)`
+        )
+        .run(sessionId, topicId, setIndex, JSON.stringify(questionIds));
+    return Number(result.lastInsertRowid);
+}
+
+/**
+ * @param {number} sessionId
+ * @param {number|null} topicId
+ * @returns {object[]}
+ */
+export function findSetsForSession(sessionId, topicId = undefined) {
+    if (topicId === undefined) {
+        return getDb()
+            .prepare(
+                `SELECT s.*, t.title AS topic_title
+                 FROM exam_session_sets s
+                 LEFT JOIN topics t ON t.id = s.topic_id
+                 WHERE s.session_id = ?
+                 ORDER BY s.topic_id ASC, s.set_index ASC`
+            )
+            .all(sessionId);
+    }
+    if (topicId == null) {
+        return getDb()
+            .prepare(
+                `SELECT * FROM exam_session_sets
+                 WHERE session_id = ? AND topic_id IS NULL
+                 ORDER BY set_index ASC`
+            )
+            .all(sessionId);
+    }
+    return getDb()
+        .prepare(
+            `SELECT * FROM exam_session_sets
+             WHERE session_id = ? AND topic_id = ?
+             ORDER BY set_index ASC`
+        )
+        .all(sessionId, topicId);
+}
+
+/**
+ * @param {number} setId
+ * @returns {object|null}
+ */
+export function findSetById(setId) {
+    return getDb().prepare('SELECT * FROM exam_session_sets WHERE id = ?').get(setId) || null;
+}
+
+/**
+ * Pick the least-used set for a session/topic.
+ * @param {number} sessionId
+ * @param {number|null} topicId
+ * @returns {object|null}
+ */
+export function findLeastUsedSet(sessionId, topicId) {
+    const sql =
+        topicId == null
+            ? `SELECT s.*, COUNT(a.id) AS assign_count
+               FROM exam_session_sets s
+               LEFT JOIN exam_assignments a ON a.session_set_id = s.id
+               WHERE s.session_id = ? AND s.topic_id IS NULL
+               GROUP BY s.id
+               ORDER BY assign_count ASC, s.set_index ASC
+               LIMIT 1`
+            : `SELECT s.*, COUNT(a.id) AS assign_count
+               FROM exam_session_sets s
+               LEFT JOIN exam_assignments a ON a.session_set_id = s.id
+               WHERE s.session_id = ? AND s.topic_id = ?
+               GROUP BY s.id
+               ORDER BY assign_count ASC, s.set_index ASC
+               LIMIT 1`;
+    const params = topicId == null ? [sessionId] : [sessionId, topicId];
+    return getDb().prepare(sql).get(...params) || null;
+}
+
+/**
+ * Distinct topics that have generated sets in this session.
+ * @param {number} sessionId
+ * @returns {{ id: number, title: string }[]}
+ */
+export function findTopicsForSession(sessionId) {
+    return getDb()
+        .prepare(
+            `SELECT DISTINCT t.id, t.title
+             FROM exam_session_sets s
+             INNER JOIN topics t ON t.id = s.topic_id
+             WHERE s.session_id = ?
+               AND t.parent_id IS NULL
+             ORDER BY t.sort_order ASC, t.id ASC`
+        )
+        .all(sessionId);
+}
+
+/**
+ * @param {object} data
+ */
+export function createAssignment(data) {
     getDb()
         .prepare(
-            `INSERT INTO exam_assignments (session_id, user_id, question_set, status)
-             VALUES (?, ?, ?, 'assigned')`
+            `INSERT INTO exam_assignments
+                (session_id, user_id, topic_id, session_set_id, question_set, status)
+             VALUES (?, ?, ?, ?, ?, 'assigned')`
         )
-        .run(sessionId, userId, JSON.stringify(questionSet));
+        .run(
+            data.sessionId,
+            data.userId,
+            data.topicId ?? null,
+            data.sessionSetId ?? null,
+            JSON.stringify(data.questionSet)
+        );
 }
 
 /**
  * @param {number} sessionId
  * @param {number} userId
+ * @param {number|null} [topicId]
  * @returns {object|null}
  */
-export function findAssignment(sessionId, userId) {
-    const row = getDb()
-        .prepare('SELECT * FROM exam_assignments WHERE session_id = ? AND user_id = ?')
-        .get(sessionId, userId);
-    return row || null;
+export function findAssignment(sessionId, userId, topicId = undefined) {
+    if (topicId === undefined) {
+        return (
+            getDb()
+                .prepare('SELECT * FROM exam_assignments WHERE session_id = ? AND user_id = ?')
+                .get(sessionId, userId) || null
+        );
+    }
+    if (topicId == null) {
+        return (
+            getDb()
+                .prepare(
+                    `SELECT * FROM exam_assignments
+                     WHERE session_id = ? AND user_id = ? AND topic_id IS NULL`
+                )
+                .get(sessionId, userId) || null
+        );
+    }
+    return (
+        getDb()
+            .prepare(
+                `SELECT * FROM exam_assignments
+                 WHERE session_id = ? AND user_id = ? AND topic_id = ?`
+            )
+            .get(sessionId, userId, topicId) || null
+    );
 }
 
 /**
@@ -301,10 +519,10 @@ export function createResult(data) {
  * @param {number} userId
  * @returns {object|null}
  */
-export function findResult(sessionId, userId) {
+export function findResultByAssignment(assignmentId) {
     return (
         getDb()
-            .prepare('SELECT * FROM exam_results WHERE session_id = ? AND user_id = ?')
-            .get(sessionId, userId) || null
+            .prepare('SELECT * FROM exam_results WHERE assignment_id = ?')
+            .get(assignmentId) || null
     );
 }

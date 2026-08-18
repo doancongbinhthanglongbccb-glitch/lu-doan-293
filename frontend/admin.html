@@ -257,7 +257,7 @@
                             <thead>
                                 <tr>
                                     <th>Tiểu đoàn</th>
-                                    <th>Loại</th>
+                                    <th>Nhánh</th>
                                     <th>Câu/bộ</th>
                                     <th>Mở — Đóng</th>
                                     <th>Trạng thái</th>
@@ -391,19 +391,9 @@
                 <span class="modal-title">Tạo đợt kiểm tra</span>
             </div>
             <div class="input-group">
-                <label for="examSessionBattalion">Tiểu đoàn</label>
-                <select id="examSessionBattalion"></select>
-            </div>
-            <div class="input-group">
-                <label for="examSessionType">Loại</label>
-                <select id="examSessionType">
-                    <option value="topic">Theo lĩnh vực</option>
-                    <option value="mixed">Trộn tổng hợp</option>
-                </select>
-            </div>
-            <div class="input-group" id="examSessionTopicGroup">
-                <label for="examSessionTopic">Lĩnh vực</label>
-                <select id="examSessionTopic"></select>
+                <label>Tiểu đoàn</label>
+                <div id="examSessionBattalionList" class="exam-battalion-list"></div>
+                <p class="admin-hint">Chọn một hoặc nhiều tiểu đoàn cùng làm đợt này.</p>
             </div>
             <div class="input-group">
                 <label for="examSessionQPerSet">Số câu / bộ</label>

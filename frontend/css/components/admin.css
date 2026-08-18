@@ -570,6 +570,17 @@
     font-weight: 500;
 }
 
+.exam-battalion-list {
+    max-height: 180px;
+    overflow-y: auto;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
 .user-id {
     font-family: ui-monospace, monospace;
     font-size: 13px;

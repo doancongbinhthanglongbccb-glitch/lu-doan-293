@@ -183,6 +183,97 @@ function ensureExamTables() {
     console.log('[migrate] Exam session tables ensured.');
 }
 
+function ensureExamSessionBattalions() {
+    const db = getDb();
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS exam_session_battalions (
+            session_id      INTEGER NOT NULL REFERENCES exam_sessions(id) ON DELETE CASCADE,
+            battalion_id    INTEGER NOT NULL REFERENCES battalions(id),
+            PRIMARY KEY (session_id, battalion_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_exam_session_battalions_battalion
+            ON exam_session_battalions(battalion_id);
+    `);
+
+    const backfill = db.prepare(
+        `INSERT OR IGNORE INTO exam_session_battalions (session_id, battalion_id)
+         SELECT id, battalion_id FROM exam_sessions WHERE battalion_id IS NOT NULL`
+    ).run();
+    if (backfill.changes > 0) {
+        console.log(`[migrate] Backfilled exam_session_battalions for ${backfill.changes} session(s).`);
+    }
+}
+
+function tableHasColumn(table, column) {
+    return getDb()
+        .prepare(`PRAGMA table_info(${table})`)
+        .all()
+        .some(col => col.name === column);
+}
+
+function ensureExamSessionSetsV2() {
+    const db = getDb();
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS exam_session_sets (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id      INTEGER NOT NULL REFERENCES exam_sessions(id) ON DELETE CASCADE,
+            topic_id        INTEGER REFERENCES topics(id),
+            set_index       INTEGER NOT NULL,
+            question_ids    TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_exam_session_sets_session ON exam_session_sets(session_id);
+    `);
+
+    if (tableHasColumn('exam_assignments', 'topic_id')) return;
+
+    db.exec('PRAGMA foreign_keys = OFF');
+    db.exec(`
+        CREATE TABLE exam_assignments_v2 (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id      INTEGER NOT NULL REFERENCES exam_sessions(id) ON DELETE CASCADE,
+            user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            topic_id        INTEGER REFERENCES topics(id),
+            session_set_id  INTEGER REFERENCES exam_session_sets(id),
+            question_set    TEXT NOT NULL,
+            status          TEXT NOT NULL DEFAULT 'assigned'
+                            CHECK(status IN ('assigned', 'in_progress', 'completed')),
+            assigned_at     TEXT NOT NULL DEFAULT (datetime('now')),
+            started_at      TEXT,
+            completed_at    TEXT
+        );
+        INSERT INTO exam_assignments_v2
+            (id, session_id, user_id, topic_id, session_set_id, question_set, status, assigned_at, started_at, completed_at)
+        SELECT id, session_id, user_id, NULL, NULL, question_set, status, assigned_at, started_at, completed_at
+        FROM exam_assignments;
+        DROP TABLE exam_assignments;
+        ALTER TABLE exam_assignments_v2 RENAME TO exam_assignments;
+        CREATE INDEX IF NOT EXISTS idx_exam_assignments_session ON exam_assignments(session_id);
+        CREATE INDEX IF NOT EXISTS idx_exam_assignments_user ON exam_assignments(user_id);
+
+        CREATE TABLE exam_results_v2 (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            assignment_id   INTEGER REFERENCES exam_assignments(id) ON DELETE SET NULL,
+            user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            session_id      INTEGER NOT NULL REFERENCES exam_sessions(id) ON DELETE CASCADE,
+            score           REAL,
+            total           INTEGER,
+            duration_sec    INTEGER,
+            detail          TEXT,
+            created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        INSERT INTO exam_results_v2
+            (id, assignment_id, user_id, session_id, score, total, duration_sec, detail, created_at)
+        SELECT id, assignment_id, user_id, session_id, score, total, duration_sec, detail, created_at
+        FROM exam_results;
+        DROP TABLE exam_results;
+        ALTER TABLE exam_results_v2 RENAME TO exam_results;
+        CREATE INDEX IF NOT EXISTS idx_exam_results_user ON exam_results(user_id);
+        CREATE INDEX IF NOT EXISTS idx_exam_results_session ON exam_results(session_id);
+    `);
+    db.exec('PRAGMA foreign_keys = ON');
+    console.log('[migrate] exam_assignments/exam_results upgraded for per-topic sets.');
+}
+
 function ensurePracticeMixedSetCount() {
     const db = getDb();
     try {
@@ -329,6 +420,8 @@ try {
     ensurePracticeMixedSetCount();
     ensurePracticeMixedTables();
     ensureExamTables();
+    ensureExamSessionSetsV2();
+    ensureExamSessionBattalions();
     ensureExamTimeBufferMinutes();
     seedAdmin();
     seedQuizMeta();

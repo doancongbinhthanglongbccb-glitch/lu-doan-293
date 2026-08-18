@@ -3,10 +3,78 @@ import {
     DEFAULT_QUIZ_TITLE,
     DEFAULT_PRACTICE_MIXED_QUESTION_COUNT,
     DEFAULT_PRACTICE_MIXED_SET_COUNT,
-    DEFAULT_EXAM_TIME_BUFFER_MINUTES
+    DEFAULT_EXAM_TIME_BUFFER_MINUTES,
+    TOPIC_TREE_MAX_DEPTH
 } from '../config/constants.js';
 import { runTransaction } from '../utils/transaction.js';
 import { sanitizeQuizDataHtml } from '../utils/sanitize-html.js';
+
+/**
+ * CTE cộng dồn câu hỏi của topic + mọi con/cháu, cắt ở TOPIC_TREE_MAX_DEPTH.
+ * Export để test dùng đúng SQL production.
+ */
+export const QUESTION_POOL_CTE = `WITH RECURSIVE subtree AS (
+    SELECT id, 1 AS depth FROM topics WHERE id = ?
+    UNION ALL
+    SELECT t.id, s.depth + 1 FROM topics t
+    INNER JOIN subtree s ON t.parent_id = s.id
+    WHERE s.depth < ${TOPIC_TREE_MAX_DEPTH}
+ )
+ SELECT q.id FROM questions q
+ WHERE q.topic_id IN (SELECT id FROM subtree)
+ ORDER BY q.id ASC`;
+
+/**
+ * Gán parentId cho topicId có tạo chu trình không (kể cả tự trỏ).
+ * @param {import('node:sqlite').DatabaseSync} db
+ * @param {number} topicId
+ * @param {number|null} parentId
+ * @returns {boolean}
+ */
+export function parentAssignmentWouldCycle(db, topicId, parentId) {
+    if (parentId == null) return false;
+    const tid = Number(topicId);
+    const pid = Number(parentId);
+    if (!Number.isInteger(tid) || !Number.isInteger(pid)) return false;
+    if (pid === tid) return true;
+    const hit = db
+        .prepare(
+            `WITH RECURSIVE descendants AS (
+                SELECT id, 1 AS depth FROM topics WHERE parent_id = ?
+                UNION ALL
+                SELECT t.id, d.depth + 1 FROM topics t
+                INNER JOIN descendants d ON t.parent_id = d.id
+                WHERE d.depth < ?
+             )
+             SELECT 1 AS hit FROM descendants WHERE id = ? LIMIT 1`
+        )
+        .get(tid, TOPIC_TREE_MAX_DEPTH, pid);
+    return !!hit;
+}
+
+function topicTreeError(message) {
+    const e = new Error(message);
+    e.status = 400;
+    return e;
+}
+
+/**
+ * Payload 2 cấp: trùng id hoặc con.id === cha.id → chu trình khi upsert.
+ * @param {object[]} topics
+ */
+export function quizPayloadWouldCycle(topics) {
+    const ids = [];
+    for (const topic of topics || []) {
+        if (topic.id != null) ids.push(Number(topic.id));
+        for (const child of topic.children || []) {
+            if (child.id == null) continue;
+            const cid = Number(child.id);
+            if (topic.id != null && cid === Number(topic.id)) return true;
+            ids.push(cid);
+        }
+    }
+    return new Set(ids).size !== ids.length;
+}
 
 /**
  * Tạo hash duy nhất cho câu hỏi (cột hash là UNIQUE toàn DB).
@@ -208,18 +276,31 @@ export function updateQuizSettings(data) {
 }
 
 /**
+ * Câu hỏi của `topicId` và mọi node con/cháu. Không truyền topicId = toàn bộ ngân hàng.
  * @param {number|null} topicId
  * @returns {number[]}
  */
 export function getQuestionPoolIds(topicId = null) {
     const db = getDb();
-    if (topicId) {
-        return db
-            .prepare('SELECT id FROM questions WHERE topic_id = ? ORDER BY id ASC')
-            .all(topicId)
-            .map(r => r.id);
+    if (!topicId) {
+        return db.prepare('SELECT id FROM questions ORDER BY id ASC').all().map(r => r.id);
     }
-    return db.prepare('SELECT id FROM questions ORDER BY id ASC').all().map(r => r.id);
+    return db.prepare(QUESTION_POOL_CTE).all(topicId).map(r => r.id);
+}
+
+/**
+ * Lĩnh vực = topic gốc (parent_id IS NULL) có ít nhất một câu trong cây con.
+ * @returns {{ id: number, title: string }[]}
+ */
+export function getTopicsWithQuestions() {
+    const roots = getDb()
+        .prepare(
+            `SELECT id, title FROM topics
+             WHERE parent_id IS NULL
+             ORDER BY sort_order ASC, id ASC`
+        )
+        .all();
+    return roots.filter(root => getQuestionPoolIds(root.id).length > 0);
 }
 
 /**
@@ -319,6 +400,11 @@ function upsertTopicRow(db, topic, parentId, sortOrder, keptTopicIds) {
     let topicId;
 
     if (topic.id && topicExists.get(topic.id)) {
+        if (parentAssignmentWouldCycle(db, topic.id, parentId)) {
+            throw topicTreeError(
+                'Không thể gán chủ đề cha: sẽ tạo vòng lặp trong cây lĩnh vực.'
+            );
+        }
         updateTopic.run(topicTitle, sortOrder, parentId, topic.id);
         topicId = topic.id;
     } else {
@@ -339,6 +425,11 @@ export function replaceQuizData(data) {
         const err = new Error('Thiếu danh sách chủ đề (topics).');
         err.status = 400;
         throw err;
+    }
+    if (quizPayloadWouldCycle(data.topics)) {
+        throw topicTreeError(
+            'Cây chủ đề không hợp lệ: trùng id hoặc cha-con tạo vòng lặp.'
+        );
     }
 
     const db = getDb();

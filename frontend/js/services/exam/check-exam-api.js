@@ -11,17 +11,50 @@ export async function loadOpenSessions() {
 
 /**
  * @param {number} sessionId
+ * @param {number} [topicId]
  */
-export async function getReadiness(sessionId) {
-    const { data } = await apiClient.get(`/exam/sessions/${sessionId}/readiness`, { silent: true });
+export async function getReadiness(sessionId, topicId) {
+    const query = topicId ? `?topicId=${topicId}` : '';
+    const { data } = await apiClient.get(`/exam/sessions/${sessionId}/readiness${query}`, {
+        silent: true
+    });
     return unwrapPayload(data);
 }
 
 /**
  * @param {number} sessionId
  */
-export async function startSession(sessionId) {
-    const { data } = await apiClient.post(`/exam/sessions/${sessionId}/start`, {}, { silent: true });
+export async function loadSessionTopics(sessionId) {
+    const { data } = await apiClient.get(`/exam/sessions/${sessionId}/topics`, { silent: true });
+    return unwrapPayload(data).topics || [];
+}
+
+/**
+ * @param {number} sessionId
+ */
+export async function loadBranches(sessionId) {
+    const { data } = await apiClient.get(`/exam/sessions/${sessionId}/branches`, { silent: true });
+    return unwrapPayload(data);
+}
+
+/**
+ * @param {number} sessionId
+ * @param {number|null} [topicId]
+ */
+export async function loadSets(sessionId, topicId = null) {
+    const query = topicId ? `?topicId=${topicId}` : '';
+    const { data } = await apiClient.get(`/exam/sessions/${sessionId}/sets${query}`, { silent: true });
+    return unwrapPayload(data).sets || [];
+}
+
+/**
+ * @param {number} sessionId
+ * @param {{ topicId?: number }} [body]
+ */
+export async function startSession(sessionId, body = {}) {
+    const { data } = await apiClient.post(`/exam/sessions/${sessionId}/start`, body, {
+        silent: true
+    });
     return unwrapPayload(data);
 }
 

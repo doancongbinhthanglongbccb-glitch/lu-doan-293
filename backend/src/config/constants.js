@@ -31,3 +31,6 @@ export const EXAM_SESSION_TYPES = {
     TOPIC: 'topic',
     MIXED: 'mixed'
 };
+
+/** Trần độ sâu CTE cây topic — chặn treo khi parent_id tạo chu trình. */
+export const TOPIC_TREE_MAX_DEPTH = 32;

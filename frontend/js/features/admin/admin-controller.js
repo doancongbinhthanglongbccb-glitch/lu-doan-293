@@ -35,7 +35,7 @@ import {
     countLeafTopics,
     countParentTopics,
     findTopicTitleConflict,
-    listSelectableLeaves
+    quizPayloadWouldCycle
 } from '../../core/topic-tree.js';
 
 /**
@@ -284,6 +284,10 @@ export class AdminController {
     }
 
     async saveData() {
+        if (quizPayloadWouldCycle(this.quizData?.topics)) {
+            Toast.error('Cây chủ đề không hợp lệ: trùng id hoặc cha-con tạo vòng lặp.');
+            return;
+        }
         const snapshot = clone(this.quizData);
         try {
             this.quizData = await quizRepo.saveQuizData(this.quizData);
@@ -1287,7 +1291,7 @@ export class AdminController {
         }
         sessions.forEach(s => {
             const tr = document.createElement('tr');
-            const typeLabel = s.type === 'mixed' ? 'Trộn' : s.topicTitle || 'Lĩnh vực';
+            const typeLabel = 'Lĩnh vực + Trộn';
             let actions = '';
             if (s.status === 'draft') {
                 actions += `<button class="btn-sm btn-green exam-open" data-id="${s.id}">Mở</button> `;
@@ -1322,37 +1326,31 @@ export class AdminController {
     }
 
     openExamSessionModal() {
-        const battalionSelect = $('examSessionBattalion');
-        battalionSelect.innerHTML = '';
+        const list = $('examSessionBattalionList');
+        list.innerHTML = '';
         this.battalions
             .filter(b => b.isActive)
             .forEach(b => {
-                const opt = document.createElement('option');
-                opt.value = String(b.id);
-                opt.textContent = b.name;
-                battalionSelect.appendChild(opt);
+                const label = document.createElement('label');
+                label.className = 'checkbox-label';
+                label.innerHTML =
+                    `<input type="checkbox" class="exam-battalion-chk" value="${b.id}"> ${escapeAttr(b.name)}`;
+                list.appendChild(label);
             });
-        const topicSelect = $('examSessionTopic');
-        topicSelect.innerHTML = '';
-        listSelectableLeaves(this.quizData).forEach(item => {
-            const opt = document.createElement('option');
-            opt.value = String(item.topic.id);
-            opt.textContent = item.label;
-            topicSelect.appendChild(opt);
-        });
-        $('examSessionType').onchange = () => {
-            $('examSessionTopicGroup').hidden = $('examSessionType').value === 'mixed';
-        };
-        $('examSessionTopicGroup').hidden = $('examSessionType').value === 'mixed';
         ModalManager.open('examSessionModal');
     }
 
     async saveExamSession() {
-        const type = $('examSessionType').value;
+        const battalionIds = Array.from(document.querySelectorAll('.exam-battalion-chk:checked')).map(
+            el => parseInt(el.value, 10)
+        );
+        if (!battalionIds.length) {
+            Toast.warning('Vui lòng chọn ít nhất một tiểu đoàn.');
+            return;
+        }
         const body = {
-            battalionId: parseInt($('examSessionBattalion').value, 10),
-            type,
-            topicId: type === 'topic' ? parseInt($('examSessionTopic').value, 10) : null,
+            battalionIds,
+            type: 'mixed',
             questionsPerSet: parseInt($('examSessionQPerSet').value, 10),
             numberOfSets: parseInt($('examSessionNumSets').value, 10),
             durationMinutes: parseInt($('examSessionDuration').value, 10),

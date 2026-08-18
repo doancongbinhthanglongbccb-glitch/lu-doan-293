@@ -212,3 +212,22 @@ export function listSelectableLeaves(data) {
     });
     return items;
 }
+
+/**
+ * Payload admin: trùng id hoặc con.id === cha.id sẽ tạo vòng khi lưu.
+ * @param {object[]} topics
+ * @returns {boolean}
+ */
+export function quizPayloadWouldCycle(topics) {
+    const ids = [];
+    for (const topic of topics || []) {
+        if (topic.id != null) ids.push(Number(topic.id));
+        for (const child of topic.children || []) {
+            if (child.id == null) continue;
+            const cid = Number(child.id);
+            if (topic.id != null && cid === Number(topic.id)) return true;
+            ids.push(cid);
+        }
+    }
+    return new Set(ids).size !== ids.length;
+}
