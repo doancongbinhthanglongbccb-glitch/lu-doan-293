@@ -1025,7 +1025,6 @@ export class QuizController {
     _bindEvents() {
         this._bindClick('btnModeReview', () => this._openPracticeMixedScreen());
         this._bindClick('btnBackHomeFromPracticeMixed', () => this.showScreen('screenHome'));
-        this._bindClick('btnModeExam', () => this.showScreen('screenSetup'));
         this._bindClick('btnModeCheck', () => this._openCheckScreen());
         this._bindClick('btnBackHomeFromCheck', () => this._onCheckBack());
         this._bindClick('btnModeHistory', () => this._showExamHistory());
@@ -1036,7 +1035,7 @@ export class QuizController {
             const count = this.wrongHistoryService?.getWrongCount() || 0;
             if (count === 0) {
                 Toast.info(
-                    'Chưa có câu sai nào. Hãy làm bài ôn tập hoặc thi thử trước — hệ thống sẽ tự ghi nhận các câu bạn trả lời sai.'
+                    'Chưa có câu sai nào. Hãy làm bài ôn tập hoặc kiểm tra trước — hệ thống sẽ tự ghi nhận các câu bạn trả lời sai.'
                 );
                 return;
             }
@@ -1068,21 +1067,7 @@ export class QuizController {
         });
 
         this._bindClick('btnStartExam', () => {
-            const count = parseInt($('examQCount').value, 10);
-            const timeM = parseInt($('examTime').value, 10);
-            if (isNaN(count) || count < 1) return Toast.warning('Số lượng không hợp lệ');
-            if (isNaN(timeM) || timeM < 1) return Toast.warning('Thời gian không hợp lệ');
-
-            const { originalData } = store.getState();
-            const examSet = QuizEngine.buildExamSet(originalData, count);
-            this._startQuizSession({
-                mode: QUIZ_MODES.EXAM,
-                reviewSubMode: null,
-                quizData: examSet,
-                titleSuffix: '',
-                showTimer: true,
-                timerMinutes: timeM
-            });
+            Toast.info('Thi thử đã được gỡ. Dùng Kiểm tra khi admin mở đợt.');
         });
 
         this._bindClick('btnStartWrongReview', () => {
