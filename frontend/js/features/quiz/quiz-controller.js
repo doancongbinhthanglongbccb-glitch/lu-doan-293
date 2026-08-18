@@ -31,6 +31,7 @@ import { handleError } from '../../utils/errors.js';
 import { listSelectableLeaves, isTopicParent } from '../../core/topic-tree.js';
 import * as checkExamApi from '../../services/exam/check-exam-api.js';
 import * as practiceMixedApi from '../../services/quiz/practice-mixed-api.js';
+import * as topicReviewApi from '../../services/quiz/topic-review-api.js';
 
 /**
  * Main quiz application controller — orchestrates UI and business logic.
@@ -60,6 +61,9 @@ export class QuizController {
         this.selectedCheckSession = null;
         this._closesAtTimer = null;
         this.historyTab = 'topic';
+        this.practiceSetSource = 'mixed';
+        this.currentTopicReview = null;
+        this.topicReviewSetIndex = null;
     }
 
     /** Initialize quiz application */
@@ -752,25 +756,52 @@ export class QuizController {
         });
     }
 
-    _createTopicReviewCard(item, idx, title) {
+    _createTopicReviewCard(item, idx, title, perSetCount, progress = null) {
         const card = document.createElement('div');
         card.className = 'topic-review-card';
         const qCount = (item.topic.questions || []).length;
+        const perSet = Math.max(1, Number(perSetCount) || qCount || 1);
+        const setCount = Math.max(1, Math.ceil(qCount / perSet));
+        const answered = Math.max(0, Number(progress?.answered) || 0);
+        const total = Math.max(0, Number(progress?.total) || 0);
+        const pct = total > 0 ? Math.round((answered / total) * 100) : 0;
         card.innerHTML =
             `<div class="topic-card-title">${escapeAttr(title)}</div>` +
-            `<div class="topic-card-meta">${qCount} câu hỏi</div>` +
+            `<div class="topic-card-meta">${qCount} câu hỏi · ${setCount} bộ</div>` +
+            `<div class="topic-card-meta">${answered}/${total || qCount} câu đã làm</div>` +
+            `<div class="practice-set-progress" aria-hidden="true"><div class="practice-set-progress-bar" style="width:${pct}%"></div></div>` +
             `<div class="topic-card-actions"><button class="btn-card-action btn-card-start" type="button">Ôn tập</button></div>`;
         card.querySelector('button').addEventListener('click', () => this._startTopicReview(idx));
         return card;
     }
 
-    _renderTopicReviewList() {
+    async _renderTopicReviewList() {
         const { originalData } = store.getState();
         const container = $('topicReviewList');
         if (!container) return;
         container.innerHTML = '';
+        const perSetCount =
+            originalData?.settings?.sharedQuestionCount ||
+            originalData?.settings?.practiceMixedQuestionCount ||
+            30;
 
         const leaves = listSelectableLeaves(originalData);
+        const progressByTopic = new Map();
+        await Promise.all(
+            leaves.map(async item => {
+                if (!item?.topic?.id) return;
+                try {
+                    const payload = await topicReviewApi.loadSets(item.topic.id);
+                    const sets = payload.sets || [];
+                    progressByTopic.set(item.topic.id, {
+                        answered: sets.reduce((sum, s) => sum + (Number(s.answered) || 0), 0),
+                        total: sets.reduce((sum, s) => sum + (Number(s.total) || 0), 0)
+                    });
+                } catch {
+                    progressByTopic.set(item.topic.id, { answered: 0, total: 0 });
+                }
+            })
+        );
         const leafIndex = new Map(
             leaves.map((item, idx) => [`${item.ref.p}:${item.ref.c ?? ''}`, idx])
         );
@@ -792,15 +823,31 @@ export class QuizController {
                 topic.children.forEach((child, c) => {
                     const idx = leafIndex.get(`${p}:${c}`);
                     if (idx == null) return;
-                    grid.appendChild(this._createTopicReviewCard(leaves[idx], idx, child.title));
+                    const item = leaves[idx];
+                    grid.appendChild(
+                        this._createTopicReviewCard(
+                            item,
+                            idx,
+                            child.title,
+                            perSetCount,
+                            progressByTopic.get(item.topic.id)
+                        )
+                    );
                 });
                 group.appendChild(grid);
                 container.appendChild(group);
             } else if ((topic.questions?.length || 0) > 0) {
                 const idx = leafIndex.get(`${p}:`);
                 if (idx != null) {
+                    const item = leaves[idx];
                     container.appendChild(
-                        this._createTopicReviewCard(leaves[idx], idx, topic.title)
+                        this._createTopicReviewCard(
+                            item,
+                            idx,
+                            topic.title,
+                            perSetCount,
+                            progressByTopic.get(item.topic.id)
+                        )
                     );
                 }
             }
@@ -812,14 +859,85 @@ export class QuizController {
      */
     _startTopicReview(idx) {
         const { originalData } = store.getState();
-        const set = QuizEngine.buildTopicReviewSet(originalData, idx);
-        this._startQuizSession({
-            mode: QUIZ_MODES.REVIEW,
-            reviewSubMode: REVIEW_SUB_MODES.TOPIC,
-            quizData: { title: set.title, questions: set.questions },
-            titleSuffix: ' (Ôn tập)',
-            showTimer: false
-        });
+        const leaves = listSelectableLeaves(originalData);
+        const item = leaves[idx];
+        if (!item?.topic?.id) {
+            Toast.error('Không tìm thấy nội dung ôn tập.');
+            return;
+        }
+        this._openTopicReviewSets(item);
+    }
+
+    async _openTopicReviewSets(item) {
+        showLoading('Đang tải bộ ôn tập...');
+        try {
+            const payload = await topicReviewApi.loadSets(item.topic.id);
+            const sets = payload.sets || [];
+            const titleEl = $('practiceMixedTitle');
+            const subEl = $('practiceMixedSubtitle');
+            const hintEl = $('practiceMixedHint');
+            const listEl = $('practiceMixedList');
+            this.practiceSetSource = 'topic';
+            this.currentTopicReview = { topicId: item.topic.id, label: item.label };
+            this.topicReviewSetIndex = null;
+
+            if (titleEl) titleEl.textContent = 'Ôn tập từng phần';
+            if (subEl) subEl.textContent = item.label || 'Chọn bộ đề';
+            hintEl.textContent = 'Bộ đề chia cố định theo thứ tự câu (id tăng dần).';
+            listEl.innerHTML = '';
+
+            if (!sets.length) {
+                listEl.innerHTML = '<p class="admin-hint">Nội dung này chưa có câu hỏi.</p>';
+                this.showScreen('screenPracticeMixed');
+                return;
+            }
+
+            sets.forEach(set => {
+                const pct = set.total ? Math.round((set.answered / set.total) * 100) : 0;
+                const card = document.createElement('div');
+                card.className = 'topic-review-card';
+                card.innerHTML =
+                    `<div class="topic-card-title">Bộ ${set.setIndex}</div>` +
+                    `<div class="topic-card-meta">${set.answered}/${set.total} câu đã làm</div>` +
+                    `<div class="practice-set-progress" aria-hidden="true"><div class="practice-set-progress-bar" style="width:${pct}%"></div></div>` +
+                    `<div class="topic-card-actions"><button class="btn-card-action btn-card-start" type="button">Ôn tập</button></div>`;
+                card.querySelector('.btn-card-start').onclick = () =>
+                    this._startTopicReviewSet(item.topic.id, set.setIndex);
+                listEl.appendChild(card);
+            });
+            this.showScreen('screenPracticeMixed');
+        } catch (err) {
+            handleError(err, { context: 'QuizController._openTopicReviewSets', fallbackKey: 'NETWORK' });
+        } finally {
+            hideLoading();
+        }
+    }
+
+    async _startTopicReviewSet(topicId, setIndex) {
+        showLoading('Đang tải bộ đề...');
+        try {
+            const payload = await topicReviewApi.loadSet(topicId, setIndex);
+            const questions = (payload.questions || []).map(q => {
+                prepareQuestion(q);
+                return q;
+            });
+            if (!questions.length) {
+                return Toast.error('Bộ ôn tập trống.');
+            }
+            this.practiceSetSource = 'topic';
+            this.topicReviewSetIndex = setIndex;
+            this._startQuizSession({
+                mode: QUIZ_MODES.REVIEW,
+                reviewSubMode: REVIEW_SUB_MODES.TOPIC,
+                quizData: { title: payload.title, questions },
+                titleSuffix: ' (Ôn tập)',
+                showTimer: false
+            });
+        } catch (err) {
+            handleError(err, { context: 'QuizController._startTopicReviewSet', fallbackKey: 'NETWORK' });
+        } finally {
+            hideLoading();
+        }
     }
 
     async _openPracticeMixedScreen() {
@@ -828,6 +946,13 @@ export class QuizController {
             const sets = await practiceMixedApi.loadSets();
             const listEl = $('practiceMixedList');
             const hintEl = $('practiceMixedHint');
+            const titleEl = $('practiceMixedTitle');
+            const subEl = $('practiceMixedSubtitle');
+            this.practiceSetSource = 'mixed';
+            this.currentTopicReview = null;
+            this.topicReviewSetIndex = null;
+            if (titleEl) titleEl.textContent = 'Ôn tập tổng hợp';
+            if (subEl) subEl.textContent = 'Chọn bộ đề';
             listEl.innerHTML = '';
             if (!sets.length) {
                 hintEl.textContent = 'Chưa có bộ ôn tập. Admin cần cấu hình số câu/bộ và số bộ, rồi tái tạo.';
@@ -867,6 +992,8 @@ export class QuizController {
                 return Toast.error('Bộ ôn tập trống.');
             }
             this.practiceMixedSetId = setId;
+            this.practiceSetSource = 'mixed';
+            this.topicReviewSetIndex = null;
             this._startQuizSession({
                 mode: QUIZ_MODES.REVIEW,
                 reviewSubMode: REVIEW_SUB_MODES.GENERAL,
@@ -882,15 +1009,24 @@ export class QuizController {
     }
 
     _recordPracticeMixedProgress(questionIndex) {
-        const setId = this.practiceMixedSetId;
-        if (!setId) return;
         const state = store.getState();
-        if (state.mode !== QUIZ_MODES.REVIEW || state.reviewSubMode !== REVIEW_SUB_MODES.GENERAL) {
+        if (state.mode !== QUIZ_MODES.REVIEW) {
             return;
         }
         const q = state.quizData?.questions?.[questionIndex];
         if (!q?.dbId || !hasAnswer(state.answers[questionIndex])) return;
-        practiceMixedApi.recordProgress(setId, q.dbId).catch(() => {});
+        if (state.reviewSubMode === REVIEW_SUB_MODES.GENERAL) {
+            const setId = this.practiceMixedSetId;
+            if (!setId) return;
+            practiceMixedApi.recordProgress(setId, q.dbId).catch(() => {});
+            return;
+        }
+        if (state.reviewSubMode === REVIEW_SUB_MODES.TOPIC) {
+            const topicId = this.currentTopicReview?.topicId;
+            const setIndex = this.topicReviewSetIndex;
+            if (!topicId || !setIndex) return;
+            topicReviewApi.recordProgress(topicId, setIndex, q.dbId).catch(() => {});
+        }
     }
 
     /**
@@ -999,7 +1135,13 @@ export class QuizController {
 
     _bindEvents() {
         this._bindClick('btnModeReview', () => this._openPracticeMixedScreen());
-        this._bindClick('btnBackHomeFromPracticeMixed', () => this.showScreen('screenHome'));
+        this._bindClick('btnBackHomeFromPracticeMixed', () => {
+            if (this.practiceSetSource === 'topic') {
+                this.showScreen('screenTopicReview');
+                return;
+            }
+            this.showScreen('screenHome');
+        });
         this._bindClick('btnModeCheck', () => this._openCheckScreen());
         this._bindClick('btnBackHomeFromCheck', () => this._onCheckBack());
         this._bindClick('btnModeHistory', () => this._showExamHistory());
@@ -1028,9 +1170,14 @@ export class QuizController {
         });
 
         this._bindClick('btnBackHomeFromSetupWrong', () => this.showScreen('screenHome'));
-        this._bindClick('btnModeTopicReview', () => {
-            this._renderTopicReviewList();
-            this.showScreen('screenTopicReview');
+        this._bindClick('btnModeTopicReview', async () => {
+            showLoading('Đang tải tiến độ ôn tập...');
+            try {
+                await this._renderTopicReviewList();
+                this.showScreen('screenTopicReview');
+            } finally {
+                hideLoading();
+            }
         });
         this._bindClick('btnBackHomeFromTopic', () => this.showScreen('screenHome'));
 

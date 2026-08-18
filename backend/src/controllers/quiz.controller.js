@@ -1,5 +1,6 @@
 import * as quizService from '../services/quiz.service.js';
 import * as practiceMixedService from '../services/practice-mixed.service.js';
+import * as topicReviewService from '../services/topic-review.service.js';
 import { sendSuccess, sendError } from '../utils/response.js';
 
 /**
@@ -147,6 +148,46 @@ export function regeneratePracticeMixedSets(req, res, next) {
             return sendError(res, result.error, 400);
         }
         sendSuccess(res, { setCount: result.setCount }, 'Đã tái tạo bộ ôn tập tổng hợp.');
+    } catch (err) {
+        next(err);
+    }
+}
+
+export function listTopicReviewSets(req, res, next) {
+    try {
+        const topicId = parsePositiveInt(req.params.topicId);
+        if (!topicId) return sendError(res, 'ID nội dung không hợp lệ.', 400);
+        const payload = topicReviewService.listSetsForUser(req.user.id, topicId);
+        sendSuccess(res, payload);
+    } catch (err) {
+        next(err);
+    }
+}
+
+export function getTopicReviewSet(req, res, next) {
+    try {
+        const topicId = parsePositiveInt(req.params.topicId);
+        const setIndex = parsePositiveInt(req.params.setIndex);
+        if (!topicId || !setIndex) return sendError(res, 'ID bộ không hợp lệ.', 400);
+        const payload = topicReviewService.getSetQuestions(topicId, setIndex);
+        sendSuccess(res, payload);
+    } catch (err) {
+        next(err);
+    }
+}
+
+export function postTopicReviewProgress(req, res, next) {
+    try {
+        const topicId = parsePositiveInt(req.params.topicId);
+        const setIndex = parsePositiveInt(req.params.setIndex);
+        if (!topicId || !setIndex) return sendError(res, 'ID bộ không hợp lệ.', 400);
+        const ids = Array.isArray(req.body.questionIds)
+            ? req.body.questionIds
+            : req.body.questionId != null
+              ? [req.body.questionId]
+              : [];
+        const progress = topicReviewService.recordProgress(req.user.id, topicId, setIndex, ids);
+        sendSuccess(res, { progress });
     } catch (err) {
         next(err);
     }

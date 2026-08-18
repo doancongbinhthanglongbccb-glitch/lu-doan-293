@@ -302,6 +302,14 @@ function ensurePracticeMixedTables() {
             updated_at      TEXT NOT NULL DEFAULT (datetime('now')),
             PRIMARY KEY (user_id, set_id)
         );
+        CREATE TABLE IF NOT EXISTS practice_topic_progress (
+            user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            topic_id        INTEGER NOT NULL REFERENCES topics(id) ON DELETE CASCADE,
+            set_index       INTEGER NOT NULL,
+            answered_ids    TEXT NOT NULL DEFAULT '[]',
+            updated_at      TEXT NOT NULL DEFAULT (datetime('now')),
+            PRIMARY KEY (user_id, topic_id, set_index)
+        );
     `);
 }
 

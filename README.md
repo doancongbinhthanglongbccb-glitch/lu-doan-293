@@ -45,7 +45,7 @@ npm run dev
 | URL | Mô tả |
 |-----|--------|
 | http://localhost:3000/login | Đăng nhập |
-| http://localhost:3000/quiz | Ôn tập / thi thử |
+| http://localhost:3000/quiz | Ôn tập / Kiểm tra |
 | http://localhost:3000/admin | Quản trị (admin) |
 | http://localhost:8080 | Chỉ static UI (debug, không gọi API) |
 
@@ -75,6 +75,7 @@ Xem [docs/DEPLOY.md](docs/DEPLOY.md) — deploy trên [Sevalla](https://app.seva
 ## Tài liệu
 
 - [docs/API.md](docs/API.md) — REST API
+- [docs/ADMIN.md](docs/ADMIN.md) — Hướng dẫn admin + checklist E2E
 - [docs/DATABASE.md](docs/DATABASE.md) — SQLite schema
 - [backend/README.md](backend/README.md) — Chi tiết backend
 
@@ -89,7 +90,7 @@ Browser → Express (backend/src)
             └── /*         → frontend/ (static)
 ```
 
-LocalStorage client: cache session, JWT, quiz. Lịch sử câu sai sync qua `/api/quiz/wrong-history`. Lịch sử thi thử qua `/api/quiz/history`.
+LocalStorage client: cache session, JWT, quiz. Lịch sử câu sai sync qua `/api/quiz/wrong-history`. Kết quả Kiểm tra lưu `exam_results`, xem qua `/api/exam/history`.
 
 ---
 

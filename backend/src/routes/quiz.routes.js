@@ -17,6 +17,10 @@ router.patch(
     '/settings',
     requireAdmin,
     validate([
+        body('sharedQuestionCount')
+            .optional()
+            .isInt({ min: 1 })
+            .withMessage('Số câu dùng chung phải là số nguyên dương.'),
         body('practiceMixedQuestionCount')
             .optional()
             .isInt({ min: 1 })
@@ -38,6 +42,9 @@ router.post('/topics/:topicId/import', requireAdmin, quizController.importToTopi
 router.get('/practice-mixed/sets', quizController.listPracticeMixedSets);
 router.get('/practice-mixed/sets/:id', quizController.getPracticeMixedSet);
 router.post('/practice-mixed/sets/:id/progress', quizController.postPracticeMixedProgress);
+router.get('/topic-review/:topicId/sets', quizController.listTopicReviewSets);
+router.get('/topic-review/:topicId/sets/:setIndex', quizController.getTopicReviewSet);
+router.post('/topic-review/:topicId/sets/:setIndex/progress', quizController.postTopicReviewProgress);
 router.post(
     '/practice-mixed/regenerate',
     requireAdmin,

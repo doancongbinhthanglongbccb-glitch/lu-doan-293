@@ -205,6 +205,8 @@ export function getQuizSettings() {
     const setCount = row?.practice_mixed_set_count;
     const buffer = row?.exam_time_buffer_minutes;
     return {
+        sharedQuestionCount:
+            count > 0 ? count : DEFAULT_PRACTICE_MIXED_QUESTION_COUNT,
         practiceMixedQuestionCount:
             count > 0 ? count : DEFAULT_PRACTICE_MIXED_QUESTION_COUNT,
         practiceMixedSetCount: setCount > 0 ? setCount : DEFAULT_PRACTICE_MIXED_SET_COUNT,
@@ -220,8 +222,12 @@ export function updateQuizSettings(data) {
     const fields = [];
     const values = [];
 
-    if (data.practiceMixedQuestionCount !== undefined) {
-        const count = parseInt(data.practiceMixedQuestionCount, 10);
+    const sharedCountInput =
+        data.sharedQuestionCount !== undefined
+            ? data.sharedQuestionCount
+            : data.practiceMixedQuestionCount;
+    if (sharedCountInput !== undefined) {
+        const count = parseInt(sharedCountInput, 10);
         if (!count || count < 1) {
             const err = new Error('Số câu ôn tập tổng hợp phải là số nguyên dương.');
             err.status = 400;
@@ -263,7 +269,7 @@ export function updateQuizSettings(data) {
              VALUES (1, ?, ?, ?, ?)`
         ).run(
             DEFAULT_QUIZ_TITLE,
-            data.practiceMixedQuestionCount ?? DEFAULT_PRACTICE_MIXED_QUESTION_COUNT,
+            sharedCountInput ?? DEFAULT_PRACTICE_MIXED_QUESTION_COUNT,
             data.practiceMixedSetCount ?? DEFAULT_PRACTICE_MIXED_SET_COUNT,
             data.examTimeBufferMinutes ?? DEFAULT_EXAM_TIME_BUFFER_MINUTES
         );
@@ -273,6 +279,34 @@ export function updateQuizSettings(data) {
     }
 
     return getQuizSettings();
+}
+
+/**
+ * @param {number} topicId
+ * @returns {{ id: number, title: string, parent_title: string|null }|null}
+ */
+export function findLeafTopicById(topicId) {
+    const row = getDb()
+        .prepare(
+            `SELECT t.id, t.title, p.title AS parent_title
+             FROM topics t
+             LEFT JOIN topics p ON p.id = t.parent_id
+             WHERE t.id = ?
+               AND NOT EXISTS (SELECT 1 FROM topics c WHERE c.parent_id = t.id)`
+        )
+        .get(topicId);
+    return row || null;
+}
+
+/**
+ * @param {number} topicId
+ * @returns {number[]}
+ */
+export function getQuestionIdsByLeafTopic(topicId) {
+    return getDb()
+        .prepare('SELECT id FROM questions WHERE topic_id = ? ORDER BY id ASC')
+        .all(topicId)
+        .map(r => r.id);
 }
 
 /**
