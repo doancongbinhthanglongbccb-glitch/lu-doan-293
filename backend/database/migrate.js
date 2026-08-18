@@ -5,7 +5,7 @@ import bcrypt from 'bcryptjs';
 import { getDb, closeDb } from './connection.js';
 import { env } from '../src/config/env.js';
 import { DEFAULT_ADMIN, MIN_PASSWORD_LENGTH } from '../../shared/constants/user.js';
-import { DEFAULT_QUIZ_TITLE, DEFAULT_BATTALION_NAME, DEFAULT_PRACTICE_MIXED_QUESTION_COUNT, DEFAULT_EXAM_TIME_BUFFER_MINUTES } from '../src/config/constants.js';
+import { DEFAULT_QUIZ_TITLE, DEFAULT_BATTALION_NAME, DEFAULT_PRACTICE_MIXED_QUESTION_COUNT, DEFAULT_PRACTICE_MIXED_SET_COUNT, DEFAULT_EXAM_TIME_BUFFER_MINUTES } from '../src/config/constants.js';
 import { replaceQuizData, getQuizData } from '../src/models/quiz.model.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -183,6 +183,37 @@ function ensureExamTables() {
     console.log('[migrate] Exam session tables ensured.');
 }
 
+function ensurePracticeMixedSetCount() {
+    const db = getDb();
+    try {
+        db.prepare(
+            `ALTER TABLE quiz_meta ADD COLUMN practice_mixed_set_count INTEGER NOT NULL DEFAULT ${DEFAULT_PRACTICE_MIXED_SET_COUNT}`
+        ).run();
+        console.log('[migrate] Added quiz_meta.practice_mixed_set_count column.');
+    } catch (err) {
+        if (!String(err.message).includes('duplicate column')) throw err;
+    }
+}
+
+function ensurePracticeMixedTables() {
+    const db = getDb();
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS practice_mixed_sets (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            set_index       INTEGER NOT NULL,
+            question_ids    TEXT NOT NULL,
+            created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE TABLE IF NOT EXISTS practice_mixed_progress (
+            user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            set_id          INTEGER NOT NULL REFERENCES practice_mixed_sets(id) ON DELETE CASCADE,
+            answered_ids    TEXT NOT NULL DEFAULT '[]',
+            updated_at      TEXT NOT NULL DEFAULT (datetime('now')),
+            PRIMARY KEY (user_id, set_id)
+        );
+    `);
+}
+
 function ensureExamTimeBufferMinutes() {
     const db = getDb();
     try {
@@ -295,6 +326,8 @@ try {
     ensureTopicParentIdColumn();
     ensureBattalions();
     ensurePracticeMixedQuestionCount();
+    ensurePracticeMixedSetCount();
+    ensurePracticeMixedTables();
     ensureExamTables();
     ensureExamTimeBufferMinutes();
     seedAdmin();

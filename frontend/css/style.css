@@ -729,6 +729,20 @@
             width: 100%;
             gap: 8px;
         }
+        .practice-set-progress {
+            width: 100%;
+            height: 8px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 99px;
+            overflow: hidden;
+            margin: 8px 0 16px;
+        }
+        .practice-set-progress-bar {
+            height: 100%;
+            background: #58d68d;
+            border-radius: 99px;
+            width: 0;
+        }
         .btn-card-action {
             width: 100%;
             padding: 8px;

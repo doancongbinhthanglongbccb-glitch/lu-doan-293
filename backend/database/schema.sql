@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS quiz_meta (
     updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
     seed_applied INTEGER NOT NULL DEFAULT 0,
     practice_mixed_question_count INTEGER NOT NULL DEFAULT 30,
+    practice_mixed_set_count INTEGER NOT NULL DEFAULT 5,
     exam_time_buffer_minutes INTEGER NOT NULL DEFAULT 30
 );
 
@@ -60,6 +61,21 @@ CREATE TABLE IF NOT EXISTS questions (
 );
 
 CREATE INDEX IF NOT EXISTS idx_questions_topic ON questions(topic_id);
+
+CREATE TABLE IF NOT EXISTS practice_mixed_sets (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    set_index       INTEGER NOT NULL,
+    question_ids    TEXT NOT NULL,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS practice_mixed_progress (
+    user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    set_id          INTEGER NOT NULL REFERENCES practice_mixed_sets(id) ON DELETE CASCADE,
+    answered_ids    TEXT NOT NULL DEFAULT '[]',
+    updated_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, set_id)
+);
 
 CREATE TABLE IF NOT EXISTS user_quiz_history (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,

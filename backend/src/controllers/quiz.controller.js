@@ -1,4 +1,5 @@
 import * as quizService from '../services/quiz.service.js';
+import * as practiceMixedService from '../services/practice-mixed.service.js';
 import { sendSuccess, sendError } from '../utils/response.js';
 
 /**
@@ -97,6 +98,54 @@ export function importToTopic(req, res, next) {
 
         const result = quizService.importQuestionsToTopic(topicId, questions);
         sendSuccess(res, result, `Đã thêm ${result.added} câu hỏi vào topic thành công.`);
+    } catch (err) {
+        next(err);
+    }
+}
+
+export function listPracticeMixedSets(req, res, next) {
+    try {
+        const sets = practiceMixedService.listSetsForUser(req.user.id);
+        sendSuccess(res, { sets });
+    } catch (err) {
+        next(err);
+    }
+}
+
+export function getPracticeMixedSet(req, res, next) {
+    try {
+        const setId = parsePositiveInt(req.params.id);
+        if (!setId) return sendError(res, 'ID bộ không hợp lệ.', 400);
+        const payload = practiceMixedService.getSetQuestions(setId);
+        sendSuccess(res, payload);
+    } catch (err) {
+        next(err);
+    }
+}
+
+export function postPracticeMixedProgress(req, res, next) {
+    try {
+        const setId = parsePositiveInt(req.params.id);
+        if (!setId) return sendError(res, 'ID bộ không hợp lệ.', 400);
+        const ids = Array.isArray(req.body.questionIds)
+            ? req.body.questionIds
+            : req.body.questionId != null
+              ? [req.body.questionId]
+              : [];
+        const progress = practiceMixedService.recordProgress(req.user.id, setId, ids);
+        sendSuccess(res, { progress });
+    } catch (err) {
+        next(err);
+    }
+}
+
+export function regeneratePracticeMixedSets(req, res, next) {
+    try {
+        const result = practiceMixedService.regenerateSets();
+        if (!result.ok) {
+            return sendError(res, result.error, 400);
+        }
+        sendSuccess(res, { setCount: result.setCount }, 'Đã tái tạo bộ ôn tập tổng hợp.');
     } catch (err) {
         next(err);
     }

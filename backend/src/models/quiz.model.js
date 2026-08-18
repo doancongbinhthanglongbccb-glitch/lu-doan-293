@@ -2,6 +2,7 @@ import { getDb } from '../../database/connection.js';
 import {
     DEFAULT_QUIZ_TITLE,
     DEFAULT_PRACTICE_MIXED_QUESTION_COUNT,
+    DEFAULT_PRACTICE_MIXED_SET_COUNT,
     DEFAULT_EXAM_TIME_BUFFER_MINUTES
 } from '../config/constants.js';
 import { runTransaction } from '../utils/transaction.js';
@@ -127,13 +128,18 @@ function syncTopicQuestions(db, topicId, questions) {
  */
 export function getQuizSettings() {
     const row = getDb()
-        .prepare('SELECT practice_mixed_question_count, exam_time_buffer_minutes FROM quiz_meta WHERE id = 1')
+        .prepare(
+            `SELECT practice_mixed_question_count, practice_mixed_set_count, exam_time_buffer_minutes
+             FROM quiz_meta WHERE id = 1`
+        )
         .get();
     const count = row?.practice_mixed_question_count;
+    const setCount = row?.practice_mixed_set_count;
     const buffer = row?.exam_time_buffer_minutes;
     return {
         practiceMixedQuestionCount:
             count > 0 ? count : DEFAULT_PRACTICE_MIXED_QUESTION_COUNT,
+        practiceMixedSetCount: setCount > 0 ? setCount : DEFAULT_PRACTICE_MIXED_SET_COUNT,
         examTimeBufferMinutes: buffer > 0 ? buffer : DEFAULT_EXAM_TIME_BUFFER_MINUTES
     };
 }
@@ -157,6 +163,17 @@ export function updateQuizSettings(data) {
         values.push(count);
     }
 
+    if (data.practiceMixedSetCount !== undefined) {
+        const setCount = parseInt(data.practiceMixedSetCount, 10);
+        if (!setCount || setCount < 1) {
+            const err = new Error('Số bộ ôn tập tổng hợp phải là số nguyên dương.');
+            err.status = 400;
+            throw err;
+        }
+        fields.push('practice_mixed_set_count = ?');
+        values.push(setCount);
+    }
+
     if (data.examTimeBufferMinutes !== undefined) {
         const buffer = parseInt(data.examTimeBufferMinutes, 10);
         if (!buffer || buffer < 1) {
@@ -174,10 +191,12 @@ export function updateQuizSettings(data) {
     const row = db.prepare('SELECT id FROM quiz_meta WHERE id = 1').get();
     if (!row) {
         db.prepare(
-            'INSERT INTO quiz_meta (id, title, practice_mixed_question_count, exam_time_buffer_minutes) VALUES (1, ?, ?, ?)'
+            `INSERT INTO quiz_meta (id, title, practice_mixed_question_count, practice_mixed_set_count, exam_time_buffer_minutes)
+             VALUES (1, ?, ?, ?, ?)`
         ).run(
             DEFAULT_QUIZ_TITLE,
             data.practiceMixedQuestionCount ?? DEFAULT_PRACTICE_MIXED_QUESTION_COUNT,
+            data.practiceMixedSetCount ?? DEFAULT_PRACTICE_MIXED_SET_COUNT,
             data.examTimeBufferMinutes ?? DEFAULT_EXAM_TIME_BUFFER_MINUTES
         );
     } else {

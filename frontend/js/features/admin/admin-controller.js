@@ -25,6 +25,7 @@ import { renderAdminHistoryTable } from '../quiz/exam-history-renderer.js';
 import { apiClient } from '../../services/api/api-client.js';
 import { unwrapPayload, pickBattalions, pickStats, pickSettings } from '../../services/api/api-response.js';
 import * as checkExamApi from '../../services/exam/check-exam-api.js';
+import * as practiceMixedApi from '../../services/quiz/practice-mixed-api.js';
 import {
     isTopicParent,
     isTopicLeaf,
@@ -1197,6 +1198,8 @@ export class AdminController {
         $('btnCancelBattalion').onclick = () => ModalManager.close('battalionModal');
         $('btnSaveBattalion').onclick = () => this.saveBattalion();
         $('btnSaveQuizSettings').onclick = () => this.saveQuizSettings();
+        const regenBtn = $('btnRegenPracticeMixed');
+        if (regenBtn) regenBtn.onclick = () => this.regeneratePracticeMixedSets();
     }
 
     renderQuizSettings() {
@@ -1204,6 +1207,11 @@ export class AdminController {
         if (!input || !this.quizData) return;
         const count = this.quizData.settings?.practiceMixedQuestionCount;
         input.value = count > 0 ? String(count) : '';
+        const setCountInput = $('practiceMixedSetCount');
+        if (setCountInput) {
+            const setCount = this.quizData.settings?.practiceMixedSetCount;
+            setCountInput.value = setCount > 0 ? String(setCount) : '5';
+        }
         const bufferInput = $('examTimeBufferMinutes');
         if (bufferInput) {
             const buffer = this.quizData.settings?.examTimeBufferMinutes;
@@ -1213,12 +1221,17 @@ export class AdminController {
 
     async saveQuizSettings() {
         const input = $('practiceMixedQuestionCount');
+        const setCountInput = $('practiceMixedSetCount');
         const bufferInput = $('examTimeBufferMinutes');
         if (!input) return;
         const count = parseInt(input.value, 10);
+        const setCount = setCountInput ? parseInt(setCountInput.value, 10) : undefined;
         const buffer = bufferInput ? parseInt(bufferInput.value, 10) : undefined;
         if (!count || count < 1) {
             return Toast.warning('Số câu phải là số nguyên dương.');
+        }
+        if (setCountInput && (!setCount || setCount < 1)) {
+            return Toast.warning('Số bộ phải là số nguyên dương.');
         }
         if (bufferInput && (!buffer || buffer < 1)) {
             return Toast.warning('Buffer thời gian phải là số nguyên dương.');
@@ -1227,6 +1240,7 @@ export class AdminController {
         showLoading('Đang lưu...');
         try {
             const payload = { practiceMixedQuestionCount: count };
+            if (setCount) payload.practiceMixedSetCount = setCount;
             if (buffer) payload.examTimeBufferMinutes = buffer;
             const { data } = await apiClient.patch('/quiz/settings', payload);
             const settings = pickSettings(data) || { practiceMixedQuestionCount: count };
@@ -1236,6 +1250,18 @@ export class AdminController {
             Toast.success('Đã cập nhật cài đặt ôn tập tổng hợp.');
         } catch (err) {
             Toast.error(err.message || 'Lưu cài đặt thất bại.');
+        } finally {
+            hideLoading();
+        }
+    }
+
+    async regeneratePracticeMixedSets() {
+        showLoading('Đang tái tạo bộ...');
+        try {
+            const setCount = await practiceMixedApi.regenerateSets();
+            Toast.success(`Đã tái tạo ${setCount} bộ ôn tập tổng hợp.`);
+        } catch (err) {
+            Toast.error(err.message || 'Tái tạo bộ thất bại.');
         } finally {
             hideLoading();
         }

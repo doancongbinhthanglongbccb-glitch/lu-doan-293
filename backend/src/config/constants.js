@@ -17,6 +17,8 @@ export const DEFAULT_BATTALION_NAME = 'Chưa phân loại';
 
 export const DEFAULT_PRACTICE_MIXED_QUESTION_COUNT = 30;
 
+export const DEFAULT_PRACTICE_MIXED_SET_COUNT = 5;
+
 export const DEFAULT_EXAM_TIME_BUFFER_MINUTES = 30;
 
 export const EXAM_SESSION_STATUS = {

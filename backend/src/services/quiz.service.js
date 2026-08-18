@@ -2,6 +2,7 @@ import * as quizModel from '../models/quiz.model.js';
 import * as wrongModel from '../models/wrong-answer.model.js';
 import * as historyModel from '../models/quiz-history.model.js';
 import * as examService from './exam.service.js';
+import * as practiceMixedService from './practice-mixed.service.js';
 
 export function getQuiz() {
     return quizModel.getQuizData();
@@ -21,14 +22,24 @@ export function saveQuiz(data) {
         err.status = 400;
         throw err;
     }
-    return quizModel.replaceQuizData(data);
+    const saved = quizModel.replaceQuizData(data);
+    practiceMixedService.regenerateSets();
+    return saved;
 }
 
 /**
  * @param {{ practiceMixedQuestionCount: number }} data
  */
 export function updateQuizSettings(data) {
-    return quizModel.updateQuizSettings(data);
+    const before = quizModel.getQuizSettings();
+    const settings = quizModel.updateQuizSettings(data);
+    const countsChanged =
+        settings.practiceMixedQuestionCount !== before.practiceMixedQuestionCount ||
+        settings.practiceMixedSetCount !== before.practiceMixedSetCount;
+    if (countsChanged) {
+        practiceMixedService.regenerateSets();
+    }
+    return settings;
 }
 
 /**
@@ -139,5 +150,6 @@ export function importQuestionsToTopic(topicId, questions) {
 
     const result = quizModel.importQuestionsToTopic(topicId, questions);
     examService.markSessionsNeedRegeneration(topicId);
+    practiceMixedService.regenerateSets();
     return result;
 }

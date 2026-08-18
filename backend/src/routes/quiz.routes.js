@@ -18,8 +18,13 @@ router.patch(
     requireAdmin,
     validate([
         body('practiceMixedQuestionCount')
+            .optional()
             .isInt({ min: 1 })
             .withMessage('Số câu ôn tập tổng hợp phải là số nguyên dương.'),
+        body('practiceMixedSetCount')
+            .optional()
+            .isInt({ min: 1 })
+            .withMessage('Số bộ ôn tập tổng hợp phải là số nguyên dương.'),
         body('examTimeBufferMinutes')
             .optional()
             .isInt({ min: 1 })
@@ -29,6 +34,15 @@ router.patch(
 );
 
 router.post('/topics/:topicId/import', requireAdmin, quizController.importToTopic);
+
+router.get('/practice-mixed/sets', quizController.listPracticeMixedSets);
+router.get('/practice-mixed/sets/:id', quizController.getPracticeMixedSet);
+router.post('/practice-mixed/sets/:id/progress', quizController.postPracticeMixedProgress);
+router.post(
+    '/practice-mixed/regenerate',
+    requireAdmin,
+    quizController.regeneratePracticeMixedSets
+);
 
 router.get('/wrong-history', quizController.getWrongHistory);
 

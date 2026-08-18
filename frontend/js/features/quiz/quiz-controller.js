@@ -30,12 +30,14 @@ import { queueTypeset } from '../../ui/mathjax-renderer.js';
 import { handleError } from '../../utils/errors.js';
 import { listSelectableLeaves, isTopicParent } from '../../core/topic-tree.js';
 import * as checkExamApi from '../../services/exam/check-exam-api.js';
+import * as practiceMixedApi from '../../services/quiz/practice-mixed-api.js';
 
 /**
  * Main quiz application controller — orchestrates UI and business logic.
  */
 export class QuizController {
     constructor() {
+        this.practiceMixedSetId = null;
         /** @type {WrongHistoryService|null} */
         this.wrongHistoryService = null;
         this.gridRenderer = null;
@@ -322,6 +324,7 @@ export class QuizController {
 
         store.setState({ answers });
         this.renderQuestion();
+        this._recordPracticeMixedProgress(currentIndex);
     }
 
     /** Submit exam/review and show results */
@@ -376,6 +379,17 @@ export class QuizController {
         }
         if (state.mode === QUIZ_MODES.CHECK) {
             this._saveCheckResult();
+        }
+        if (
+            state.mode === QUIZ_MODES.REVIEW &&
+            state.reviewSubMode === REVIEW_SUB_MODES.GENERAL &&
+            this.practiceMixedSetId
+        ) {
+            state.quizData.questions.forEach((q, i) => {
+                if (q?.dbId && hasAnswer(answers[i])) {
+                    practiceMixedApi.recordProgress(this.practiceMixedSetId, q.dbId).catch(() => {});
+                }
+            });
         }
     }
 
@@ -749,19 +763,75 @@ export class QuizController {
         });
     }
 
-    _startGeneralReview() {
-        const { originalData } = store.getState();
-        const count =
-            originalData?.settings?.practiceMixedQuestionCount ??
-            originalData?.practiceMixedQuestionCount;
-        const set = QuizEngine.buildGeneralReviewSet(originalData, count);
-        this._startQuizSession({
-            mode: QUIZ_MODES.REVIEW,
-            reviewSubMode: REVIEW_SUB_MODES.GENERAL,
-            quizData: set,
-            titleSuffix: ' (Ôn tập)',
-            showTimer: false
-        });
+    async _openPracticeMixedScreen() {
+        showLoading('Đang tải bộ ôn tập...');
+        try {
+            const sets = await practiceMixedApi.loadSets();
+            const listEl = $('practiceMixedList');
+            const hintEl = $('practiceMixedHint');
+            listEl.innerHTML = '';
+            if (!sets.length) {
+                hintEl.textContent = 'Chưa có bộ ôn tập. Admin cần cấu hình số câu/bộ và số bộ, rồi tái tạo.';
+                this.showScreen('screenPracticeMixed');
+                return;
+            }
+            hintEl.textContent = 'Chọn một bộ để ôn. Thanh tiến độ đếm câu đã trả lời (đúng hoặc sai).';
+            sets.forEach(set => {
+                const pct = set.total ? Math.round((set.answered / set.total) * 100) : 0;
+                const card = document.createElement('div');
+                card.className = 'topic-review-card';
+                card.innerHTML =
+                    `<div class="topic-card-title">Bộ ${set.setIndex}</div>` +
+                    `<div class="topic-card-meta">${set.answered}/${set.total} câu đã làm</div>` +
+                    `<div class="practice-set-progress" aria-hidden="true"><div class="practice-set-progress-bar" style="width:${pct}%"></div></div>` +
+                    `<div class="topic-card-actions"><button class="btn-card-action btn-card-start" type="button">Ôn tập</button></div>`;
+                card.querySelector('.btn-card-start').onclick = () => this._startPracticeMixedSet(set.id);
+                listEl.appendChild(card);
+            });
+            this.showScreen('screenPracticeMixed');
+        } catch (err) {
+            handleError(err, { context: 'QuizController._openPracticeMixedScreen', fallbackKey: 'NETWORK' });
+        } finally {
+            hideLoading();
+        }
+    }
+
+    async _startPracticeMixedSet(setId) {
+        showLoading('Đang tải bộ đề...');
+        try {
+            const payload = await practiceMixedApi.loadSet(setId);
+            const questions = (payload.questions || []).map(q => {
+                prepareQuestion(q);
+                return q;
+            });
+            if (!questions.length) {
+                return Toast.error('Bộ ôn tập trống.');
+            }
+            this.practiceMixedSetId = setId;
+            this._startQuizSession({
+                mode: QUIZ_MODES.REVIEW,
+                reviewSubMode: REVIEW_SUB_MODES.GENERAL,
+                quizData: { title: payload.title, questions },
+                titleSuffix: ' (Ôn tập)',
+                showTimer: false
+            });
+        } catch (err) {
+            handleError(err, { context: 'QuizController._startPracticeMixedSet', fallbackKey: 'NETWORK' });
+        } finally {
+            hideLoading();
+        }
+    }
+
+    _recordPracticeMixedProgress(questionIndex) {
+        const setId = this.practiceMixedSetId;
+        if (!setId) return;
+        const state = store.getState();
+        if (state.mode !== QUIZ_MODES.REVIEW || state.reviewSubMode !== REVIEW_SUB_MODES.GENERAL) {
+            return;
+        }
+        const q = state.quizData?.questions?.[questionIndex];
+        if (!q?.dbId || !hasAnswer(state.answers[questionIndex])) return;
+        practiceMixedApi.recordProgress(setId, q.dbId).catch(() => {});
     }
 
     /**
@@ -769,6 +839,9 @@ export class QuizController {
      */
     _startQuizSession({ mode, reviewSubMode, quizData, titleSuffix = '', showTimer = false, timerMinutes }) {
         quizTimer.destroy();
+        if (reviewSubMode !== REVIEW_SUB_MODES.GENERAL) {
+            this.practiceMixedSetId = null;
+        }
         const totalCount = quizData.questions.length;
         const startTime = formatDateTime(new Date());
 
@@ -866,7 +939,8 @@ export class QuizController {
     }
 
     _bindEvents() {
-        this._bindClick('btnModeReview', () => this._startGeneralReview());
+        this._bindClick('btnModeReview', () => this._openPracticeMixedScreen());
+        this._bindClick('btnBackHomeFromPracticeMixed', () => this.showScreen('screenHome'));
         this._bindClick('btnModeExam', () => this.showScreen('screenSetup'));
         this._bindClick('btnModeCheck', () => this._openCheckScreen());
         this._bindClick('btnBackHomeFromCheck', () => this.showScreen('screenHome'));
