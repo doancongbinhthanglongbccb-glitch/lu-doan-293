@@ -21,6 +21,15 @@ describe('generateExamSets', () => {
         assert.deepEqual([...result.sets[0]].sort((a, b) => a - b), [1, 2]);
     });
 
+    it('đúng 50% trùng → chấp nhận; trên 50% → từ chối', () => {
+        // 2/4 = 0.5 → không vượt ngưỡng (điều kiện là > 0.5)
+        assert.equal(overlapRatio([1, 2, 3, 4], [1, 2, 5, 6]), 0.5);
+        assert.equal(overlapRatio([1, 2, 3, 4], [1, 2, 5, 6]) > 0.5, false);
+        // 3/4 = 0.75 → từ chối
+        assert.equal(overlapRatio([1, 2, 3, 4], [1, 2, 3, 9]), 0.75);
+        assert.equal(overlapRatio([1, 2, 3, 4], [1, 2, 3, 9]) > 0.5, true);
+    });
+
     it('các bộ không trùng quá 50% khi pool đủ lớn', () => {
         const pool = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
         const result = generateExamSets(pool, 4, 3, { rng: Math.random });

@@ -132,3 +132,43 @@ export function submitSession(req, res, next) {
         next(err);
     }
 }
+
+export function listMyCheckHistory(req, res, next) {
+    try {
+        const limit = parseInt(req.query.limit, 10) || 50;
+        const branch =
+            req.query.branch === 'mixed' || req.query.branch === 'topic' ? req.query.branch : '';
+        const records = examService.listCheckHistoryForUser(req.user.id, { limit, branch });
+        sendSuccess(res, { records });
+    } catch (err) {
+        next(err);
+    }
+}
+
+export function listCheckHistoryAdmin(req, res, next) {
+    try {
+        const battalionId = req.query.battalionId ? parseInt(req.query.battalionId, 10) : null;
+        const branch = req.query.branch === 'mixed' || req.query.branch === 'topic' ? req.query.branch : '';
+        const search = req.query.search || '';
+        const limit = parseInt(req.query.limit, 10) || 200;
+        const records = examService.listCheckHistoryAdmin({
+            battalionId: Number.isInteger(battalionId) && battalionId > 0 ? battalionId : null,
+            branch,
+            search,
+            limit
+        });
+        sendSuccess(res, { records });
+    } catch (err) {
+        next(err);
+    }
+}
+
+export function getProgressMatrix(req, res, next) {
+    try {
+        const sessionId = parseInt(req.params.id, 10);
+        const matrix = examService.getProgressMatrix(sessionId);
+        sendSuccess(res, matrix);
+    } catch (err) {
+        next(err);
+    }
+}

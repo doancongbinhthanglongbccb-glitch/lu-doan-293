@@ -1,10 +1,6 @@
 import { formatElapsedTime } from '../../utils/date.js';
 import { escapeAttr } from '../../utils/html.js';
 
-const MODE_LABELS = {
-    exam: 'Thi thử'
-};
-
 /**
  * @param {string} iso
  * @returns {string}
@@ -39,8 +35,11 @@ export function normalizeExamRecord(record) {
             : null;
 
     return {
-        title: detail.title || 'Bài thi',
-        modeLabel: MODE_LABELS[record.mode] || record.mode,
+        title: record.topicTitle || detail.title || 'Bài kiểm tra',
+        modeLabel:
+            record.branch === 'mixed'
+                ? 'Kiểm tra · Trộn'
+                : `Kiểm tra · ${record.topicTitle || 'Lĩnh vực'}`,
         timeLimit: detail.timeLimit || '—',
         scoreText: formatExamScore(record),
         total: record.total ?? '—',
@@ -52,7 +51,8 @@ export function normalizeExamRecord(record) {
         unanswered: detail.unanswered ?? '—',
         createdAtText: formatExamDate(record.createdAt),
         militaryId: record.militaryId || '—',
-        fullName: record.fullName || '—'
+        fullName: record.fullName || '—',
+        battalionName: record.battalionName || '—'
     };
 }
 
@@ -66,7 +66,7 @@ export function renderAdminHistoryTable(tbody, records, emptyMessage) {
     tbody.innerHTML = '';
 
     if (!records.length) {
-        tbody.innerHTML = `<tr><td colspan="9" class="empty-cell">${emptyMessage}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="11" class="empty-cell">${emptyMessage}</td></tr>`;
         return;
     }
 
@@ -77,6 +77,8 @@ export function renderAdminHistoryTable(tbody, records, emptyMessage) {
             `<td>${escapeAttr(row.createdAtText)}</td>` +
             `<td><code class="user-id">${escapeAttr(row.militaryId)}</code></td>` +
             `<td>${escapeAttr(row.fullName)}</td>` +
+            `<td>${escapeAttr(row.battalionName)}</td>` +
+            `<td>${escapeAttr(row.modeLabel)}</td>` +
             `<td><strong>${escapeAttr(row.scoreText)}</strong></td>` +
             `<td>${row.total}</td>` +
             `<td>${escapeAttr(row.duration)}</td>` +
@@ -100,11 +102,12 @@ export class ExamHistoryRenderer {
 
     /**
      * @param {object[]} records
+     * @param {string} [emptyMessage]
      */
-    render(records) {
+    render(records, emptyMessage) {
         if (!records.length) {
             this.container.innerHTML =
-                '<p class="exam-history-empty">Chưa có lịch sử thi. Hãy làm bài <strong>Thi thử</strong> để hệ thống ghi nhận kết quả.</p>';
+                `<p class="exam-history-empty">${escapeAttr(emptyMessage || 'Chưa có bài kiểm tra nào.')}</p>`;
             return;
         }
 

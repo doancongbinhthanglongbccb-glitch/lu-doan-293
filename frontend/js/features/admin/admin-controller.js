@@ -51,6 +51,8 @@ export class AdminController {
         this.userTab = 'pending';
         this.userSearchQuery = '';
         this.historySearchQuery = '';
+        this.historyTypeFilter = 'check';
+        this.historyBattalionFilter = '';
         /** @type {object[]} */
         this.historyRecords = [];
         this._historySearchTimer = null;
@@ -59,6 +61,7 @@ export class AdminController {
         /** @type {object[]} */
         this.examSessions = [];
         this.userBattalionFilter = '';
+        this.progressMatrixSessionId = '';
     }
 
     /** Initialize admin panel */
@@ -1033,6 +1036,7 @@ export class AdminController {
         const { data } = await apiClient.get('/battalions', { silent: true });
         this.battalions = pickBattalions(data) || [];
         this.populateBattalionFilter();
+        this.populateHistoryFilters();
         return this.battalions;
     }
 
@@ -1040,6 +1044,20 @@ export class AdminController {
         const select = $('userBattalionFilter');
         if (!select) return;
         const current = this.userBattalionFilter;
+        select.innerHTML = '<option value="">Tất cả tiểu đoàn</option>';
+        this.battalions.forEach(b => {
+            const opt = document.createElement('option');
+            opt.value = String(b.id);
+            opt.textContent = b.isActive ? b.name : `${b.name} (ẩn)`;
+            select.appendChild(opt);
+        });
+        select.value = current;
+    }
+
+    populateHistoryFilters() {
+        const select = $('historyBattalionFilter');
+        if (!select) return;
+        const current = this.historyBattalionFilter;
         select.innerHTML = '<option value="">Tất cả tiểu đoàn</option>';
         this.battalions.forEach(b => {
             const opt = document.createElement('option');
@@ -1068,13 +1086,18 @@ export class AdminController {
             const stats = pickStats(data) || [];
             const container = $('battalionDashboardStats');
             if (!container) return;
-            container.innerHTML = '<p class="admin-hint">Tổng số người dùng đã đăng ký theo tiểu đoàn</p>';
+            container.innerHTML = '<p class="admin-hint">Tổng số người dùng đã đăng ký theo tiểu đoàn. Đã thi / điểm chỉ tính bài Kiểm tra.</p>';
             stats.forEach(row => {
                 const card = document.createElement('div');
                 card.className = 'stat-card';
+                const avg = row.avgScore != null ? row.avgScore : '—';
+                const max = row.maxScore != null ? row.maxScore : '—';
+                const min = row.minScore != null ? row.minScore : '—';
                 card.innerHTML =
                     `<span class="stat-label">${escapeAttr(row.name)}</span>` +
-                    `<span class="stat-value">${row.userCount ?? 0}</span>`;
+                    `<span class="stat-value">${row.userCount ?? 0}</span>` +
+                    `<span class="stat-extra">Đã thi: ${row.taken ?? 0}` +
+                    `<br>Điểm TB: ${avg} · Cao: ${max} · Thấp: ${min}</span>`;
                 container.appendChild(card);
             });
         } catch (err) {
@@ -1275,9 +1298,84 @@ export class AdminController {
         try {
             this.examSessions = await checkExamApi.loadSessionsAdmin();
             this.renderExamSessionTable();
+            this.populateProgressMatrixSelect();
+            await this.loadProgressMatrix();
         } catch (err) {
             handleError(err, { context: 'AdminController.loadExamSessions', fallbackKey: 'NETWORK' });
         }
+    }
+
+    populateProgressMatrixSelect() {
+        const select = $('progressMatrixSession');
+        if (!select) return;
+        const sessions = this.examSessions || [];
+        const current = this.progressMatrixSessionId || (sessions[0] ? String(sessions[0].id) : '');
+        select.innerHTML = '';
+        if (!sessions.length) {
+            select.innerHTML = '<option value="">Chưa có đợt</option>';
+            this.progressMatrixSessionId = '';
+            return;
+        }
+        sessions.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = String(s.id);
+            opt.textContent = `${s.battalionName || 'Đợt'} · ${s.status} · ${s.opensAt || ''}`;
+            select.appendChild(opt);
+        });
+        if (!sessions.some(s => String(s.id) === current)) {
+            this.progressMatrixSessionId = String(sessions[0].id);
+        } else {
+            this.progressMatrixSessionId = current;
+        }
+        select.value = this.progressMatrixSessionId;
+    }
+
+    async loadProgressMatrix() {
+        const thead = $('progressMatrixHead');
+        const tbody = $('progressMatrixBody');
+        if (!thead || !tbody) return;
+        const sessionId = parseInt(this.progressMatrixSessionId, 10);
+        if (!sessionId) {
+            thead.innerHTML = '';
+            tbody.innerHTML = '<tr><td class="empty-cell">Chưa có đợt kiểm tra.</td></tr>';
+            return;
+        }
+        try {
+            const matrix = await checkExamApi.loadProgressMatrix(sessionId);
+            this.renderProgressMatrix(matrix);
+        } catch (err) {
+            handleError(err, { context: 'AdminController.loadProgressMatrix', fallbackKey: 'NETWORK' });
+        }
+    }
+
+    renderProgressMatrix(matrix) {
+        const thead = $('progressMatrixHead');
+        const tbody = $('progressMatrixBody');
+        if (!thead || !tbody) return;
+        const columns = matrix.columns || [];
+        const rows = matrix.rows || [];
+        thead.innerHTML =
+            '<tr><th>Tiểu đoàn</th>' +
+            columns.map(col => `<th>${escapeAttr(col.title)}</th>`).join('') +
+            '</tr>';
+        if (!rows.length) {
+            tbody.innerHTML = `<tr><td colspan="${columns.length + 1}" class="empty-cell">Đợt chưa gắn tiểu đoàn.</td></tr>`;
+            return;
+        }
+        tbody.innerHTML = '';
+        rows.forEach(row => {
+            const tr = document.createElement('tr');
+            const cells = columns
+                .map(col => {
+                    const cell = row.cells?.[col.key];
+                    if (!cell) return '<td class="matrix-dash">—</td>';
+                    const roster = cell.roster ?? row.roster ?? 0;
+                    return `<td>${cell.taken}/${roster}</td>`;
+                })
+                .join('');
+            tr.innerHTML = `<td>${escapeAttr(row.battalionName)}</td>${cells}`;
+            tbody.appendChild(tr);
+        });
     }
 
     renderExamSessionTable() {
@@ -1438,12 +1536,35 @@ export class AdminController {
         if (cancelBtn) cancelBtn.onclick = () => ModalManager.close('examSessionModal');
         const saveBtn = $('btnSaveExamSession');
         if (saveBtn) saveBtn.onclick = () => this.saveExamSession();
+        const matrixSelect = $('progressMatrixSession');
+        if (matrixSelect) {
+            matrixSelect.onchange = () => {
+                this.progressMatrixSessionId = matrixSelect.value;
+                this.loadProgressMatrix();
+            };
+        }
     }
 
     // ——— Exam history (admin) ———
 
     bindHistoryEvents() {
         $('btnReloadHistory').onclick = () => this.loadHistoryTable();
+
+        const typeFilter = $('historyTypeFilter');
+        if (typeFilter) {
+            typeFilter.value = this.historyTypeFilter;
+            typeFilter.onchange = () => {
+                this.historyTypeFilter = typeFilter.value;
+                this.loadHistoryTable();
+            };
+        }
+        const battalionFilter = $('historyBattalionFilter');
+        if (battalionFilter) {
+            battalionFilter.onchange = () => {
+                this.historyBattalionFilter = battalionFilter.value;
+                this.loadHistoryTable();
+            };
+        }
 
         $('historySearchInput').oninput = e => {
             this.historySearchQuery = e.target.value.trim();
@@ -1457,11 +1578,15 @@ export class AdminController {
     }
 
     async loadHistoryTable() {
-        showLoading('Đang tải lịch sử thi...');
+        showLoading('Đang tải lịch sử Kiểm tra...');
         try {
-            this.historyRecords = await quizRepo.loadAllExamHistory({
+            const type = this.historyTypeFilter || 'check';
+            const branch = type === 'topic' || type === 'mixed' ? type : '';
+            this.historyRecords = await checkExamApi.loadCheckHistoryAdmin({
                 limit: 200,
-                search: this.historySearchQuery
+                search: this.historySearchQuery,
+                battalionId: this.historyBattalionFilter,
+                branch
             });
             this.renderHistoryTable();
         } catch (err) {
@@ -1473,8 +1598,8 @@ export class AdminController {
 
     renderHistoryTable() {
         const emptyMessage = this.historySearchQuery
-            ? 'Không tìm thấy lịch sử thi phù hợp.'
-            : 'Chưa có lịch sử thi nào trong hệ thống.';
+            ? 'Không tìm thấy kết quả Kiểm tra phù hợp.'
+            : 'Chưa có kết quả Kiểm tra nào trong hệ thống.';
         const records = this.historyRecords || [];
         const countEl = $('statHistoryCount');
         const shownEl = $('statHistoryShown');

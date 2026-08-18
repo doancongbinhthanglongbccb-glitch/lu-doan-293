@@ -450,6 +450,24 @@ export function markSessionsNeedRegeneration(topicId) {
     examModel.markNeedsRegenerationForTopic(topicId);
 }
 
+export function listCheckHistoryForUser(userId, options) {
+    return examModel.listResultsForUser(userId, options);
+}
+
+export function listCheckHistoryAdmin(options) {
+    return examModel.listResultsAdmin(options);
+}
+
+export function getProgressMatrix(sessionId) {
+    const session = examModel.findById(sessionId);
+    if (!session) throw err('Không tìm thấy đợt kiểm tra.', 404);
+    const matrix = examModel.getProgressMatrix(sessionId);
+    return {
+        session: examModel.toPublicSession(session),
+        ...matrix
+    };
+}
+
 /**
  * @param {number} sessionId
  * @param {number} userId

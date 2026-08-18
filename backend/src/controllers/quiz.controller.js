@@ -71,7 +71,8 @@ export function getAllQuizHistory(req, res, next) {
     try {
         const limit = parsePositiveInt(req.query.limit) ?? 100;
         const search = req.query.search || '';
-        const records = quizService.getAllQuizHistory({ limit, search });
+        const battalionId = parsePositiveInt(req.query.battalionId);
+        const records = quizService.getAllQuizHistory({ limit, search, battalionId });
         sendSuccess(res, { records });
     } catch (err) {
         next(err);

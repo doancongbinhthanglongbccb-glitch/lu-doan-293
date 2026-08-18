@@ -113,3 +113,44 @@ export async function regenerateSessionAdmin(id) {
     const { data } = await apiClient.post(`/exam/sessions/${id}/regenerate`, {}, { silent: true });
     return unwrapPayload(data).session;
 }
+
+/**
+ * @param {object} [params]
+ * @returns {Promise<object[]>}
+ */
+export async function loadCheckHistory({ limit = 50, branch = '' } = {}) {
+    const query = new URLSearchParams();
+    query.set('limit', String(limit));
+    if (branch) query.set('branch', branch);
+    const { data } = await apiClient.get(`/exam/history?${query}`, { silent: true });
+    return unwrapPayload(data).records || [];
+}
+
+/**
+ * @param {object} [params]
+ * @returns {Promise<object[]>}
+ */
+export async function loadCheckHistoryAdmin({
+    limit = 200,
+    search = '',
+    battalionId = '',
+    branch = ''
+} = {}) {
+    const query = new URLSearchParams();
+    query.set('limit', String(limit));
+    if (search) query.set('search', search);
+    if (battalionId) query.set('battalionId', String(battalionId));
+    if (branch) query.set('branch', branch);
+    const { data } = await apiClient.get(`/exam/history/all?${query}`, { silent: true });
+    return unwrapPayload(data).records || [];
+}
+
+/**
+ * @param {number} sessionId
+ */
+export async function loadProgressMatrix(sessionId) {
+    const { data } = await apiClient.get(`/exam/sessions/${sessionId}/progress-matrix`, {
+        silent: true
+    });
+    return unwrapPayload(data);
+}

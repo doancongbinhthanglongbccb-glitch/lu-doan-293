@@ -59,6 +59,7 @@ export class QuizController {
         this.selectedCheckBranch = null;
         this.selectedCheckSession = null;
         this._closesAtTimer = null;
+        this.historyTab = 'topic';
     }
 
     /** Initialize quiz application */
@@ -377,9 +378,6 @@ export class QuizController {
         this._updateWrongButtonVisibility();
         this._showResultScreen();
 
-        if (state.mode === QUIZ_MODES.EXAM) {
-            this._saveExamHistory();
-        }
         if (state.mode === QUIZ_MODES.CHECK) {
             this._saveCheckResult();
         }
@@ -437,34 +435,6 @@ export class QuizController {
             elapsedSec: timerState.elapsed
         });
         this._renderReviewList();
-    }
-
-    async _saveExamHistory() {
-        const state = store.getState();
-        const timerState = quizTimer.getState();
-        const { scoreCount, totalCount, quizData, timeTotalStr, timeStartStr, timeEndStr } = state;
-        const { scoreNumeric } = QuizEngine.summarizeScore(scoreCount, totalCount);
-        const counts = QuizEngine.countByStatus(quizData.questions, state.answers, hasAnswer);
-
-        try {
-            await quizRepo.saveExamHistory(state.currentUser, {
-                mode: QUIZ_MODES.EXAM,
-                score: scoreNumeric,
-                total: totalCount,
-                durationSec: timerState.elapsed,
-                detail: {
-                    title: quizData.title,
-                    timeStart: timeStartStr,
-                    timeEnd: timeEndStr,
-                    timeLimit: timeTotalStr,
-                    correct: counts.correct,
-                    wrong: counts.wrong,
-                    unanswered: counts.unanswered
-                }
-            });
-        } catch (err) {
-            console.warn('[QuizController] exam history save failed:', err.message);
-        }
     }
 
     async _saveCheckResult() {
@@ -749,10 +719,15 @@ export class QuizController {
     }
 
     async _showExamHistory() {
-        showLoading('Đang tải lịch sử thi...');
+        showLoading('Đang tải lịch sử Kiểm tra...');
         try {
-            const records = await quizRepo.loadExamHistory();
-            this.examHistoryRenderer.render(records);
+            const tab = this.historyTab || 'topic';
+            const records = await checkExamApi.loadCheckHistory({ branch: tab });
+            const emptyMessage =
+                tab === 'mixed'
+                    ? 'Chưa có bài Kiểm tra trộn tổng hợp.'
+                    : 'Chưa có bài Kiểm tra theo lĩnh vực.';
+            this.examHistoryRenderer.render(records, emptyMessage);
             this.showScreen('screenHistory');
         } catch (err) {
             handleError(err, { context: 'QuizController._showExamHistory', fallbackKey: 'NETWORK' });
@@ -1029,6 +1004,15 @@ export class QuizController {
         this._bindClick('btnBackHomeFromCheck', () => this._onCheckBack());
         this._bindClick('btnModeHistory', () => this._showExamHistory());
         this._bindClick('btnBackHomeFromHistory', () => this.showScreen('screenHome'));
+        document.querySelectorAll('[data-history-tab]').forEach(tab => {
+            tab.addEventListener('click', () => {
+                this.historyTab = tab.dataset.historyTab;
+                document.querySelectorAll('[data-history-tab]').forEach(el => {
+                    el.classList.toggle('active', el === tab);
+                });
+                this._showExamHistory();
+            });
+        });
         this._bindClick('btnBackHomeFromSetup', () => this.showScreen('screenHome'));
 
         this._bindClick('btnModeReviewWrong', () => {

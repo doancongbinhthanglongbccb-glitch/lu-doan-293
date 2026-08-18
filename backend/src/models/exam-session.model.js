@@ -526,3 +526,253 @@ export function findResultByAssignment(assignmentId) {
             .get(assignmentId) || null
     );
 }
+
+function parseResultDetail(raw) {
+    if (!raw) return null;
+    try {
+        return JSON.parse(raw);
+    } catch {
+        return null;
+    }
+}
+
+function mapResultRow(row) {
+    const detail = parseResultDetail(row.detail);
+    const topicId = row.topic_id == null ? null : Number(row.topic_id);
+    const branch = topicId == null ? 'mixed' : 'topic';
+    return {
+        id: row.id,
+        source: 'check',
+        mode: 'check',
+        userId: row.user_id,
+        militaryId: row.military_id ?? null,
+        fullName: row.full_name ?? null,
+        battalionId: row.battalion_id ?? null,
+        battalionName: row.battalion_name ?? null,
+        sessionId: row.session_id,
+        assignmentId: row.assignment_id ?? null,
+        topicId,
+        topicTitle: row.topic_title || (topicId == null ? 'Trộn tổng hợp' : null),
+        branch,
+        score: row.score,
+        total: row.total,
+        durationSec: row.duration_sec,
+        detail,
+        createdAt: row.created_at
+    };
+}
+
+const RESULT_SELECT = `
+    SELECT r.id, r.assignment_id, r.user_id, r.session_id, r.score, r.total, r.duration_sec,
+           r.detail, r.created_at,
+           a.topic_id,
+           t.title AS topic_title,
+           u.military_id, u.full_name, u.battalion_id,
+           b.name AS battalion_name
+    FROM exam_results r
+    LEFT JOIN exam_assignments a ON a.id = r.assignment_id
+    LEFT JOIN topics t ON t.id = a.topic_id
+    INNER JOIN users u ON u.id = r.user_id
+    LEFT JOIN battalions b ON b.id = u.battalion_id
+`;
+
+/**
+ * Lính: kết quả Kiểm tra của chính mình.
+ * @param {number} userId
+ * @param {number} [limit]
+ */
+export function listResultsForUser(userId, options = {}) {
+    const opts = typeof options === 'number' ? { limit: options } : options;
+    const safeLimit = Math.min(Math.max(1, opts.limit ?? 50), 200);
+    const branch = opts.branch === 'mixed' || opts.branch === 'topic' ? opts.branch : '';
+    const clauses = ['r.user_id = ?'];
+    const params = [userId];
+    if (branch === 'mixed') {
+        clauses.push('a.topic_id IS NULL');
+    } else if (branch === 'topic') {
+        clauses.push('a.topic_id IS NOT NULL');
+    }
+    return getDb()
+        .prepare(
+            `${RESULT_SELECT}
+             WHERE ${clauses.join(' AND ')}
+             ORDER BY datetime(r.created_at) DESC, r.id DESC
+             LIMIT ?`
+        )
+        .all(...params, safeLimit)
+        .map(mapResultRow);
+}
+
+/**
+ * Admin: kết quả Kiểm tra, lọc tiểu đoàn / nhánh / user.
+ * @param {object} [options]
+ */
+export function listResultsAdmin({
+    battalionId = null,
+    branch = '',
+    search = '',
+    limit = 200
+} = {}) {
+    const safeLimit = Math.min(Math.max(1, limit), 500);
+    const clauses = [];
+    const params = [];
+
+    if (battalionId) {
+        clauses.push('u.battalion_id = ?');
+        params.push(battalionId);
+    }
+    if (branch === 'mixed') {
+        clauses.push('a.topic_id IS NULL');
+    } else if (branch === 'topic') {
+        clauses.push('a.topic_id IS NOT NULL');
+    }
+    const term = String(search || '').trim();
+    if (term) {
+        const like = `%${term}%`;
+        clauses.push('(u.military_id LIKE ? OR LOWER(u.full_name) LIKE LOWER(?))');
+        params.push(like, like);
+    }
+
+    const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
+    return getDb()
+        .prepare(
+            `${RESULT_SELECT}
+             ${where}
+             ORDER BY datetime(r.created_at) DESC, r.id DESC
+             LIMIT ?`
+        )
+        .all(...params, safeLimit)
+        .map(mapResultRow);
+}
+
+/**
+ * Ma trận tiến độ: tiểu đoàn × lĩnh vực gốc (+ cột Trộn) cho một đợt.
+ * Ô chưa từng có kết quả = null (UI hiện "—").
+ * @param {number} sessionId
+ */
+export function getProgressMatrix(sessionId) {
+    const sessionBattalions = findBattalionsForSession(sessionId);
+    const openedTopics = findTopicsForSession(sessionId);
+    const openedTopicIds = new Set(openedTopics.map(t => t.id));
+    const mixedOpened = findSetsForSession(sessionId, null).length > 0;
+
+    const allRoots = getDb()
+        .prepare(
+            `SELECT id, title
+             FROM topics
+             WHERE parent_id IS NULL
+             ORDER BY sort_order ASC, id ASC`
+        )
+        .all();
+
+    const columns = [
+        ...allRoots.map(t => ({
+            key: `topic:${t.id}`,
+            kind: 'topic',
+            topicId: t.id,
+            title: t.title,
+            opened: openedTopicIds.has(t.id)
+        })),
+        {
+            key: 'mixed',
+            kind: 'mixed',
+            topicId: null,
+            title: 'Trộn tổng hợp',
+            opened: mixedOpened
+        }
+    ];
+
+    const rosterByBattalion = new Map(
+        getDb()
+            .prepare(
+                `SELECT battalion_id, COUNT(*) AS roster
+                 FROM users
+                 WHERE status = 'approved'
+                   AND role = 'user'
+                   AND battalion_id IS NOT NULL
+                 GROUP BY battalion_id`
+            )
+            .all()
+            .map(row => [row.battalion_id, row.roster])
+    );
+
+    const stats = getDb()
+        .prepare(
+            `SELECT u.battalion_id,
+                    a.topic_id,
+                    COUNT(DISTINCT r.user_id) AS taken,
+                    AVG(r.score) AS avg_score,
+                    MAX(r.score) AS max_score,
+                    MIN(r.score) AS min_score
+             FROM exam_results r
+             INNER JOIN users u ON u.id = r.user_id
+             LEFT JOIN exam_assignments a ON a.id = r.assignment_id
+             WHERE r.session_id = ?
+             GROUP BY u.battalion_id, a.topic_id`
+        )
+        .all(sessionId);
+
+    const byCell = new Map();
+    stats.forEach(row => {
+        const key = `${row.battalion_id}:${row.topic_id == null ? 'mixed' : row.topic_id}`;
+        byCell.set(key, {
+            taken: row.taken,
+            avg: row.avg_score,
+            max: row.max_score,
+            min: row.min_score
+        });
+    });
+
+    const rows = sessionBattalions.map(b => {
+        const roster = rosterByBattalion.get(b.id) ?? 0;
+        const cells = {};
+        columns.forEach(col => {
+            if (!col.opened) {
+                cells[col.key] = null;
+                return;
+            }
+            const lookup = `${b.id}:${col.kind === 'mixed' ? 'mixed' : col.topicId}`;
+            const hit = byCell.get(lookup);
+            cells[col.key] = {
+                taken: hit?.taken ?? 0,
+                roster,
+                avg: hit?.avg != null ? Math.round(hit.avg * 10) / 10 : null,
+                max: hit?.max != null ? Math.round(hit.max * 10) / 10 : null,
+                min: hit?.min != null ? Math.round(hit.min * 10) / 10 : null
+            };
+        });
+        return { battalionId: b.id, battalionName: b.name, roster, cells };
+    });
+
+    return { columns, rows };
+}
+
+/**
+ * Điểm Kiểm tra gắn theo tiểu đoàn hiện tại của user (dashboard đăng ký).
+ * @returns {Map<number, { taken: number, avg: number|null, max: number|null, min: number|null }>}
+ */
+export function getCheckScoreStatsByBattalion() {
+    const rows = getDb()
+        .prepare(
+            `SELECT u.battalion_id AS battalion_id,
+                    COUNT(DISTINCT r.user_id) AS taken,
+                    AVG(r.score) AS avg_score,
+                    MAX(r.score) AS max_score,
+                    MIN(r.score) AS min_score
+             FROM exam_results r
+             INNER JOIN users u ON u.id = r.user_id
+             WHERE u.battalion_id IS NOT NULL
+             GROUP BY u.battalion_id`
+        )
+        .all();
+    const map = new Map();
+    rows.forEach(row => {
+        map.set(row.battalion_id, {
+            taken: row.taken,
+            avg: row.avg_score != null ? Math.round(row.avg_score * 10) / 10 : null,
+            max: row.max_score != null ? Math.round(row.max_score * 10) / 10 : null,
+            min: row.min_score != null ? Math.round(row.min_score * 10) / 10 : null
+        });
+    });
+    return map;
+}

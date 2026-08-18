@@ -1,4 +1,5 @@
 import * as battalionModel from '../models/battalion.model.js';
+import * as examModel from '../models/exam-session.model.js';
 
 /**
  * @returns {object[]}
@@ -86,9 +87,18 @@ export function deleteBattalion(id) {
  * @returns {object[]}
  */
 export function getRegistrationDashboard() {
-    return battalionModel.getRegistrationCounts().map(row =>
-        battalionModel.toPublicBattalion(row)
-    );
+    const checkStats = examModel.getCheckScoreStatsByBattalion();
+    return battalionModel.getRegistrationCounts().map(row => {
+        const pub = battalionModel.toPublicBattalion(row);
+        const exam = checkStats.get(row.id) || { taken: 0, avg: null, max: null, min: null };
+        return {
+            ...pub,
+            taken: exam.taken,
+            avgScore: exam.avg,
+            maxScore: exam.max,
+            minScore: exam.min
+        };
+    });
 }
 
 /**

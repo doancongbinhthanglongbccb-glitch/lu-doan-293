@@ -28,12 +28,15 @@ function mapRow(row) {
     }
     return {
         id: row.id,
+        source: 'exam',
         mode: row.mode,
         score: row.score,
         total: row.total,
         durationSec: row.duration_sec,
         detail,
-        createdAt: row.created_at
+        createdAt: row.created_at,
+        battalionId: row.battalion_id ?? null,
+        battalionName: row.battalion_name ?? null
     };
 }
 
@@ -90,7 +93,9 @@ function mapRowWithUser(row) {
         ...mapRow(row),
         userId: row.user_id,
         militaryId: row.military_id,
-        fullName: row.full_name
+        fullName: row.full_name,
+        battalionId: row.battalion_id ?? null,
+        battalionName: row.battalion_name ?? null
     };
 }
 
@@ -100,21 +105,30 @@ function mapRowWithUser(row) {
  * @param {string} [options.search] - Filter by military ID or full name
  * @param {number} [options.limit]
  */
-export function listAll({ search = '', limit = 100 } = {}) {
+export function listAll({ search = '', battalionId = null, limit = 100 } = {}) {
     const safeLimit = Math.min(Math.max(1, limit), 500);
     const term = String(search || '').trim();
 
     let sql = `
         SELECT h.id, h.user_id, h.mode, h.score, h.total, h.duration_sec, h.detail, h.created_at,
-               u.military_id, u.full_name
+               u.military_id, u.full_name, u.battalion_id, b.name AS battalion_name
         FROM user_quiz_history h
-        INNER JOIN users u ON u.id = h.user_id`;
+        INNER JOIN users u ON u.id = h.user_id
+        LEFT JOIN battalions b ON b.id = u.battalion_id`;
 
+    const clauses = [];
     const params = [];
+    if (battalionId) {
+        clauses.push('u.battalion_id = ?');
+        params.push(battalionId);
+    }
     if (term) {
         const like = `%${term}%`;
-        sql += ` WHERE (u.military_id LIKE ? OR LOWER(u.full_name) LIKE LOWER(?))`;
+        clauses.push('(u.military_id LIKE ? OR LOWER(u.full_name) LIKE LOWER(?))');
         params.push(like, like);
+    }
+    if (clauses.length) {
+        sql += ` WHERE ${clauses.join(' AND ')}`;
     }
 
     sql += ` ORDER BY datetime(h.created_at) DESC, h.id DESC LIMIT ?`;

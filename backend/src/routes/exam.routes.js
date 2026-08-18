@@ -11,6 +11,15 @@ const idParam = param('id').isInt({ min: 1 }).withMessage('ID đợt không hợ
 router.use(requireAuth);
 
 router.get('/sessions/open', examController.listOpenSessions);
+router.get('/history', examController.listMyCheckHistory);
+router.get('/history/all', requireAdmin, examController.listCheckHistoryAdmin);
+router.get('/sessions', requireAdmin, examController.listSessionsAdmin);
+router.get(
+    '/sessions/:id/progress-matrix',
+    requireAdmin,
+    validate([idParam]),
+    examController.getProgressMatrix
+);
 router.get('/sessions/:id/topics', validate([idParam]), examController.listSessionTopics);
 router.get('/sessions/:id/branches', validate([idParam]), examController.listSessionBranches);
 router.get('/sessions/:id/sets', validate([idParam]), examController.listSessionSets);
@@ -22,7 +31,6 @@ router.post(
     examController.submitSession
 );
 
-router.get('/sessions', requireAdmin, examController.listSessionsAdmin);
 router.post(
     '/sessions',
     requireAdmin,

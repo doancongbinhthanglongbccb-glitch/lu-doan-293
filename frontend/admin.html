@@ -28,7 +28,7 @@
             <button type="button" class="admin-section-btn" data-section="users" role="tab" aria-selected="false">Quản lý người dùng</button>
             <button type="button" class="admin-section-btn" data-section="settings" role="tab" aria-selected="false">Cài đặt</button>
             <button type="button" class="admin-section-btn" data-section="exam" role="tab" aria-selected="false">Đợt kiểm tra</button>
-            <button type="button" class="admin-section-btn" data-section="history" role="tab" aria-selected="false">Lịch sử thi</button>
+            <button type="button" class="admin-section-btn" data-section="history" role="tab" aria-selected="false">Lịch sử Kiểm tra</button>
         </nav>
 
         <!-- PANEL: CÂU HỎI -->
@@ -268,6 +268,23 @@
                         </table>
                     </div>
                 </div>
+                <header class="admin-toolbar admin-toolbar-sub">
+                    <div class="toolbar-heading">
+                        <h2 class="toolbar-title">Ma trận tiến độ</h2>
+                        <p class="toolbar-desc">Số đã hoàn thành / quân số theo tiểu đoàn × lĩnh vực. Ô "—" là lĩnh vực chưa mở trong đợt này.</p>
+                    </div>
+                    <div class="toolbar-actions">
+                        <select id="progressMatrixSession" class="admin-search-input admin-filter-select" aria-label="Chọn đợt kiểm tra">
+                            <option value="">Chọn đợt</option>
+                        </select>
+                    </div>
+                </header>
+                <div class="table-wrap">
+                    <table class="admin-table progress-matrix-table">
+                        <thead id="progressMatrixHead"></thead>
+                        <tbody id="progressMatrixBody"></tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
@@ -276,15 +293,23 @@
             <div class="admin-panel-inner">
                 <header class="admin-toolbar">
                     <div class="toolbar-heading">
-                        <h1 class="toolbar-title">Lịch sử thi</h1>
-                        <p class="toolbar-desc">Kết quả thi thử của toàn hệ thống</p>
+                        <h1 class="toolbar-title">Lịch sử Kiểm tra</h1>
+                        <p class="toolbar-desc">Kết quả Kiểm tra theo tiểu đoàn, nhánh và người dùng</p>
                     </div>
                     <div class="toolbar-actions">
-                        <input type="search" id="historySearchInput" class="admin-search-input" placeholder="Tìm số quân nhân hoặc họ tên..." aria-label="Tìm lịch sử thi">
+                        <select id="historyBattalionFilter" class="admin-search-input admin-filter-select" aria-label="Lọc theo tiểu đoàn">
+                            <option value="">Tất cả tiểu đoàn</option>
+                        </select>
+                        <select id="historyTypeFilter" class="admin-search-input admin-filter-select" aria-label="Lọc theo nhánh">
+                            <option value="check">Tất cả nhánh</option>
+                            <option value="topic">Theo lĩnh vực</option>
+                            <option value="mixed">Trộn tổng hợp</option>
+                        </select>
+                        <input type="search" id="historySearchInput" class="admin-search-input" placeholder="Tìm số quân nhân hoặc họ tên..." aria-label="Tìm lịch sử Kiểm tra">
                         <button type="button" id="btnReloadHistory" class="btn-toolbar btn-blue">Tải lại</button>
                     </div>
                 </header>
-                <p class="admin-hint">Admin xem kết quả <strong>Thi thử</strong> của tất cả người dùng. User thường chỉ xem được lịch sử của chính mình.</p>
+                <p class="admin-hint">Chỉ hiển thị kết quả <strong>Kiểm tra</strong>.</p>
 
                 <div class="admin-stats">
                     <div class="stat-card">
@@ -305,6 +330,8 @@
                                     <th>Thời gian</th>
                                     <th>Số QN</th>
                                     <th>Họ tên</th>
+                                    <th>Tiểu đoàn</th>
+                                    <th>Loại</th>
                                     <th>Điểm</th>
                                     <th>Số câu</th>
                                     <th>Thời gian làm</th>

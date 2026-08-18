@@ -1,4 +1,4 @@
-﻿/* Variables moved to css/base/variables.css */
+/* Variables moved to css/base/variables.css */
         .math-equation {
             display: inline-block;
             vertical-align: middle;
@@ -558,6 +558,7 @@
         .res-tabs { display: flex; border-bottom: 1px solid var(--border-color); margin-bottom: 20px; }
         .res-tab { padding: 10px 20px; cursor: pointer; font-weight: 500; color: var(--text-muted); }
         .res-tab.active { color: var(--blue-accent); border-bottom: 2px solid var(--blue-accent); }
+        .exam-history-tabs { margin-bottom: 16px; }
         
         .tab-content { display: none; }
         .tab-content.active { display: block; }
