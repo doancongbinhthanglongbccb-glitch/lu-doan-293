@@ -1,23 +1,53 @@
 /**
- * Date formatting utilities.
+ * Date formatting utilities — always Vietnam time, 24h.
  */
 
+const VN_TZ = 'Asia/Ho_Chi_Minh';
+
 /**
- * Format date for display (12-hour clock).
+ * @param {Date|string|number} date
+ * @param {{ withSeconds?: boolean }} [opts]
+ * @returns {string}
+ */
+function formatInVietnam(date, { withSeconds = false } = {}) {
+    const d = date instanceof Date ? date : new Date(date);
+    if (Number.isNaN(d.getTime())) return '—';
+    const parts = new Intl.DateTimeFormat('en-GB', {
+        timeZone: VN_TZ,
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: withSeconds ? '2-digit' : undefined,
+        hour12: false
+    }).formatToParts(d);
+    const get = type => parts.find(p => p.type === type)?.value || '';
+    const time = withSeconds
+        ? `${get('hour')}:${get('minute')}:${get('second')}`
+        : `${get('hour')}:${get('minute')}`;
+    return `${get('day')}/${get('month')}/${get('year')} ${time}`;
+}
+
+/**
+ * Format date for display (giờ VN, 24h, có giây).
  * @param {Date} date
  * @returns {string}
  */
 export function formatDateTime(date) {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const d = String(date.getDate()).padStart(2, '0');
-    let h = date.getHours();
-    const min = String(date.getMinutes()).padStart(2, '0');
-    const sec = String(date.getSeconds()).padStart(2, '0');
-    const ampm = h >= 12 ? 'pm' : 'am';
-    h = h % 12;
-    h = h || 12;
-    return `${y}-${m}-${d} ${String(h).padStart(2, '0')}:${min}:${sec} ${ampm}`;
+    return formatInVietnam(date, { withSeconds: true });
+}
+
+/**
+ * Format ISO / datetime for admin tables (giờ VN, 24h, không giây).
+ * @param {string} iso
+ * @returns {string}
+ */
+export function formatExamDate(iso) {
+    if (!iso) return '—';
+    const d = new Date(String(iso).replace(' ', 'T'));
+    if (Number.isNaN(d.getTime())) return String(iso);
+    return formatInVietnam(d);
 }
 
 /**

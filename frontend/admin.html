@@ -115,7 +115,7 @@
             <!-- PANEL: NGƯỜI DÙNG -->
             <div id="panelUsers" class="admin-section-panel" role="tabpanel">
                 <div class="admin-panel-inner">
-                    <header class="admin-toolbar admin-toolbar--end">
+                    <header id="usersAccountsToolbar" class="admin-toolbar admin-toolbar--end">
                         <div class="toolbar-actions">
                             <select id="userBattalionFilter" class="admin-search-input admin-filter-select"
                                 aria-label="Lọc theo tiểu đoàn">
@@ -126,7 +126,7 @@
                         </div>
                     </header>
 
-                    <div class="admin-subnav user-tabs" role="tablist" aria-label="Lọc người dùng">
+                    <div class="admin-subnav user-tabs" role="tablist" aria-label="Người dùng và tiểu đoàn">
                         <button type="button" class="admin-subnav-btn user-tab active" data-usertab="pending">
                             Chờ duyệt <span id="pendingCount" class="tab-badge">0</span>
                         </button>
@@ -136,23 +136,51 @@
                         <button type="button" class="admin-subnav-btn user-tab" data-usertab="approved">
                             Đã duyệt <span id="approvedCount" class="tab-badge">0</span>
                         </button>
+                        <button type="button" class="admin-subnav-btn user-tab" data-usertab="battalions">
+                            Tiểu đoàn</button>
                     </div>
 
-                    <div class="admin-panel-body">
-                        <div class="table-wrap">
-                            <table class="admin-table">
-                                <thead>
-                                    <tr>
-                                        <th>Số quân nhân</th>
-                                        <th>Họ tên</th>
-                                        <th>Tiểu đoàn</th>
-                                        <th>Quyền</th>
-                                        <th>Trạng thái</th>
-                                        <th>Thao tác</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="userTableBody"></tbody>
-                            </table>
+                    <div id="usersAccountsPane" class="user-subpanel active">
+                        <div class="admin-panel-body">
+                            <div class="table-wrap">
+                                <table class="admin-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Số quân nhân</th>
+                                            <th>Họ tên</th>
+                                            <th>Tiểu đoàn</th>
+                                            <th>Quyền</th>
+                                            <th>Trạng thái</th>
+                                            <th>Thao tác</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="userTableBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="usersBattalionsPane" class="user-subpanel">
+                        <header class="admin-toolbar admin-toolbar-sub admin-toolbar--end">
+                            <div class="toolbar-actions">
+                                <button type="button" id="btnAddBattalion" class="btn-toolbar btn-orange">+ Thêm tiểu
+                                    đoàn</button>
+                            </div>
+                        </header>
+                        <div class="admin-panel-body">
+                            <div class="table-wrap">
+                                <table class="admin-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Tên tiểu đoàn</th>
+                                            <th>Số người</th>
+                                            <th>Hiện trên đăng ký</th>
+                                            <th>Thao tác</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="battalionTableBody"></tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -161,56 +189,38 @@
             <!-- PANEL: CÀI ĐẶT -->
             <div id="panelSettings" class="admin-section-panel" role="tabpanel">
                 <div class="admin-panel-inner">
-                    <div class="admin-stats" id="battalionDashboardStats"></div>
-
-                    <header class="admin-toolbar admin-toolbar-sub">
-                        <h2 class="toolbar-title">Ôn tập tổng hợp</h2>
-                    </header>
-                    <div class="admin-panel-body admin-settings-form">
-                        <div class="input-group">
-                            <label for="practiceMixedQuestionCount">Số câu / bộ</label>
-                            <input type="number" id="practiceMixedQuestionCount" min="1" step="1"
-                                class="admin-search-input">
+                    <form id="quizSettingsForm" class="admin-settings-stack" action="javascript:void(0)">
+                        <section class="admin-settings-card" aria-labelledby="settingsPracticeTitle">
+                            <h2 id="settingsPracticeTitle" class="admin-settings-card-title">Ôn tập tổng hợp</h2>
+                            <div class="admin-settings-form">
+                                <div class="input-group">
+                                    <label for="practiceMixedQuestionCount">Số câu / bộ</label>
+                                    <input type="number" id="practiceMixedQuestionCount" min="1" step="1"
+                                        class="admin-search-input">
+                                </div>
+                                <div class="input-group">
+                                    <label for="practiceMixedSetCount">Số bộ</label>
+                                    <input type="number" id="practiceMixedSetCount" min="1" step="1"
+                                        class="admin-search-input">
+                                </div>
+                                <button type="button" id="btnRegenPracticeMixed" class="btn-toolbar btn-orange">Tái tạo
+                                    bộ</button>
+                            </div>
+                        </section>
+                        <section class="admin-settings-card" aria-labelledby="settingsExamTitle">
+                            <h2 id="settingsExamTitle" class="admin-settings-card-title">Kiểm tra</h2>
+                            <div class="admin-settings-form">
+                                <div class="input-group">
+                                    <label for="examTimeBufferMinutes">Thời gian đệm (phút)</label>
+                                    <input type="number" id="examTimeBufferMinutes" min="1" step="1"
+                                        class="admin-search-input">
+                                </div>
+                            </div>
+                        </section>
+                        <div class="admin-settings-actions">
+                            <button type="button" id="btnSaveQuizSettings" class="btn-toolbar btn-blue">Lưu</button>
                         </div>
-                        <div class="input-group">
-                            <label for="practiceMixedSetCount">Số bộ (N)</label>
-                            <input type="number" id="practiceMixedSetCount" min="1" step="1" class="admin-search-input">
-                        </div>
-                        <button type="button" id="btnSaveQuizSettings" class="btn-toolbar btn-blue">Lưu cài đặt</button>
-                        <button type="button" id="btnRegenPracticeMixed" class="btn-toolbar btn-orange">Tái tạo
-                            bộ</button>
-                    </div>
-
-                    <div class="admin-settings-form admin-settings-form-buffer">
-                        <div class="input-group">
-                            <label for="examTimeBufferMinutes">Thời gian đệm kiểm tra (phút)</label>
-                            <input type="number" id="examTimeBufferMinutes" min="1" step="1" class="admin-search-input">
-                        </div>
-                    </div>
-
-                    <header class="admin-toolbar admin-toolbar-sub admin-toolbar--end">
-                        <h2 class="toolbar-title">Tiểu đoàn</h2>
-                        <div class="toolbar-actions">
-                            <button type="button" id="btnAddBattalion" class="btn-toolbar btn-orange">+ Thêm tiểu
-                                đoàn</button>
-                        </div>
-                    </header>
-
-                    <div class="admin-panel-body">
-                        <div class="table-wrap">
-                            <table class="admin-table">
-                                <thead>
-                                    <tr>
-                                        <th>Tên tiểu đoàn</th>
-                                        <th>Số user</th>
-                                        <th>Hiển thị đăng ký</th>
-                                        <th>Thao tác</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="battalionTableBody"></tbody>
-                            </table>
-                        </div>
-                    </div>
+                    </form>
                 </div>
             </div>
 
@@ -253,9 +263,9 @@
 
                     <div id="examSubMatrix" class="exam-subpanel" role="tabpanel">
                         <header class="admin-toolbar admin-toolbar-sub admin-toolbar--end">
-                            <p class="admin-hint admin-hint-inline">Ô — = lĩnh vực chưa mở.</p>
+                            <p class="admin-hint admin-hint-inline">Số = đã nộp / sĩ số. Dấu — = lĩnh vực không có đề trong đợt này.</p>
                             <div class="toolbar-actions">
-                                <select id="progressMatrixSession" class="admin-search-input admin-filter-select"
+                                <select id="progressMatrixSession" class="admin-search-input admin-filter-select progress-session-select"
                                     aria-label="Chọn đợt kiểm tra">
                                     <option value="">Chọn đợt</option>
                                 </select>
@@ -307,11 +317,6 @@
                                             <th>Tiểu đoàn</th>
                                             <th>Loại</th>
                                             <th>Điểm</th>
-                                            <th>Số câu</th>
-                                            <th>Thời gian làm</th>
-                                            <th>Đúng</th>
-                                            <th>Sai</th>
-                                            <th>Chưa làm</th>
                                         </tr>
                                     </thead>
                                     <tbody id="historyTableBody"></tbody>

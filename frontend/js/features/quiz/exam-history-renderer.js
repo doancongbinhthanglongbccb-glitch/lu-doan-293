@@ -1,17 +1,7 @@
-import { formatElapsedTime } from '../../utils/date.js';
+import { formatElapsedTime, formatExamDate } from '../../utils/date.js';
 import { escapeAttr } from '../../utils/html.js';
 
-/**
- * @param {string} iso
- * @returns {string}
- */
-export function formatExamDate(iso) {
-    if (!iso) return '—';
-    const d = new Date(String(iso).replace(' ', 'T'));
-    if (Number.isNaN(d.getTime())) return iso;
-    const pad = n => String(n).padStart(2, '0');
-    return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
+export { formatExamDate };
 
 /**
  * @param {object} record
@@ -75,7 +65,7 @@ export function renderAdminHistoryTable(tbody, records, emptyMessage) {
     tbody.innerHTML = '';
 
     if (!records.length) {
-        tbody.innerHTML = `<tr><td colspan="11" class="empty-cell">${emptyMessage}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="empty-cell">${emptyMessage}</td></tr>`;
         return;
     }
 
@@ -88,12 +78,7 @@ export function renderAdminHistoryTable(tbody, records, emptyMessage) {
             `<td>${escapeAttr(row.fullName)}</td>` +
             `<td>${escapeAttr(row.battalionName)}</td>` +
             `<td>${escapeAttr(formatAdminBranchLabel(record))}</td>` +
-            `<td><strong>${escapeAttr(row.scoreText)}</strong></td>` +
-            `<td>${row.total}</td>` +
-            `<td>${escapeAttr(row.duration)}</td>` +
-            `<td>${row.correct}</td>` +
-            `<td>${row.wrong}</td>` +
-            `<td>${row.unanswered}</td>`;
+            `<td><strong>${escapeAttr(row.scoreText)}</strong></td>`;
         tbody.appendChild(tr);
     });
 }

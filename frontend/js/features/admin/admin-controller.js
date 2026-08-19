@@ -23,7 +23,7 @@ import { showLoading, hideLoading } from '../../ui/loading.js';
 import { handleError } from '../../utils/errors.js';
 import { formatExamDate, renderAdminHistoryTable } from '../quiz/exam-history-renderer.js';
 import { apiClient } from '../../services/api/api-client.js';
-import { unwrapPayload, pickBattalions, pickStats, pickSettings } from '../../services/api/api-response.js';
+import { unwrapPayload, pickBattalions, pickSettings } from '../../services/api/api-response.js';
 import * as checkExamApi from '../../services/exam/check-exam-api.js';
 import * as practiceMixedApi from '../../services/quiz/practice-mixed-api.js';
 import {
@@ -822,12 +822,18 @@ export class AdminController {
         }
         this._activateMainSection(section);
         if (section === 'users') this.renderUserTable();
-        if (section === 'settings') {
-            this.loadBattalionDashboard();
-            this.renderQuizSettings();
-            this.renderBattalionTable();
-        }
+        if (section === 'settings') this.renderQuizSettings();
         if (section === 'exam') this.switchExamSubtab('sessions');
+    }
+
+    _syncUserSubtab() {
+        const isBattalions = this.userTab === 'battalions';
+        const accounts = $('usersAccountsPane');
+        const battalions = $('usersBattalionsPane');
+        const toolbar = $('usersAccountsToolbar');
+        if (accounts) accounts.classList.toggle('active', !isBattalions);
+        if (battalions) battalions.classList.toggle('active', isBattalions);
+        if (toolbar) toolbar.hidden = isBattalions;
     }
 
     /**
@@ -885,7 +891,9 @@ export class AdminController {
                     ? u.status === 'pending'
                     : this.userTab === 'rejected'
                       ? u.status === 'rejected'
-                      : u.status === 'approved';
+                      : this.userTab === 'approved'
+                        ? u.status === 'approved'
+                        : false;
             if (!inTab) return false;
             if (!q) return true;
             return u.militaryId.includes(q) || (u.fullName || '').toLowerCase().includes(q);
@@ -915,12 +923,17 @@ export class AdminController {
 
     renderUserTable() {
         this.updateUserTabCounts();
+        this._syncUserSubtab();
+        if (this.userTab === 'battalions') {
+            this.renderBattalionTable();
+            return;
+        }
         const tbody = $('userTableBody');
         tbody.innerHTML = '';
         const users = this.getFilteredUsers();
 
         if (!users.length) {
-            tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">Không có user nào.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">Không có người dùng nào.</td></tr>';
             return;
         }
 
@@ -1077,7 +1090,7 @@ export class AdminController {
                 this.userBattalionFilter = e.target.value;
                 showLoading('Đang tải...');
                 try {
-                    await auth.reloadUsers(this.userBattalionFilter || undefined);
+                    await auth.reloadUsers(this.userBattalionFilter);
                     this.renderUserTable();
                 } catch (err) {
                     handleError(err, { context: 'AdminController.battalionFilter', fallbackKey: 'NETWORK' });
@@ -1143,31 +1156,6 @@ export class AdminController {
         });
     }
 
-    async loadBattalionDashboard() {
-        try {
-            const { data } = await apiClient.get('/battalions/dashboard/registration', { silent: true });
-            const stats = pickStats(data) || [];
-            const container = $('battalionDashboardStats');
-            if (!container) return;
-            container.replaceChildren();
-            stats.forEach(row => {
-                const card = document.createElement('div');
-                card.className = 'stat-card';
-                const avg = row.avgScore != null ? row.avgScore : '—';
-                const max = row.maxScore != null ? row.maxScore : '—';
-                const min = row.minScore != null ? row.minScore : '—';
-                card.innerHTML =
-                    `<span class="stat-label">${escapeAttr(row.name)}</span>` +
-                    `<span class="stat-value">${row.userCount ?? 0}</span>` +
-                    `<span class="stat-extra">Đã thi: ${row.taken ?? 0}` +
-                    `<br>Điểm TB: ${avg} · Cao: ${max} · Thấp: ${min}</span>`;
-                container.appendChild(card);
-            });
-        } catch (err) {
-            handleError(err, { context: 'AdminController.loadBattalionDashboard', fallbackKey: 'NETWORK' });
-        }
-    }
-
     renderBattalionTable() {
         const tbody = $('battalionTableBody');
         if (!tbody) return;
@@ -1183,7 +1171,7 @@ export class AdminController {
             const canDelete = (b.userCount ?? 0) === 0;
             const deleteBtn = canDelete
                 ? `<button class="btn-sm btn-delete battalion-delete" data-id="${b.id}">Xóa</button>`
-                : `<button class="btn-sm btn-delete" disabled title="Còn ${b.userCount} user">Xóa</button>`;
+                : `<button class="btn-sm btn-delete" disabled title="Còn ${b.userCount} người">Xóa</button>`;
 
             tr.innerHTML =
                 `<td>${escapeAttr(b.name)}</td>` +
@@ -1234,9 +1222,8 @@ export class AdminController {
             }
             ModalManager.close('battalionModal');
             await this.loadBattalions();
-            await auth.reloadUsers(this.userBattalionFilter || undefined);
+            await auth.reloadUsers(this.userBattalionFilter);
             this.renderBattalionTable();
-            this.loadBattalionDashboard();
             this.renderUserTable();
         } catch (err) {
             Toast.error(err.message || 'Lưu tiểu đoàn thất bại.');
@@ -1252,7 +1239,6 @@ export class AdminController {
             Toast.success(isActive ? 'Đã hiện tiểu đoàn.' : 'Đã ẩn tiểu đoàn.');
             await this.loadBattalions();
             this.renderBattalionTable();
-            this.loadBattalionDashboard();
         } catch (err) {
             Toast.error(err.message || 'Cập nhật thất bại.');
         } finally {
@@ -1273,7 +1259,6 @@ export class AdminController {
                     Toast.success('Đã xóa tiểu đoàn.');
                     await this.loadBattalions();
                     this.renderBattalionTable();
-                    this.loadBattalionDashboard();
                 } catch (err) {
                     Toast.error(err.message || 'Xóa tiểu đoàn thất bại.');
                 } finally {
@@ -1324,7 +1309,7 @@ export class AdminController {
             return Toast.warning('Số bộ phải là số nguyên dương.');
         }
         if (bufferInput && (!buffer || buffer < 1)) {
-            return Toast.warning('Buffer thời gian phải là số nguyên dương.');
+            return Toast.warning('Thời gian đệm phải là số nguyên dương.');
         }
 
         showLoading('Đang lưu...');
@@ -1382,7 +1367,14 @@ export class AdminController {
         sessions.forEach(s => {
             const opt = document.createElement('option');
             opt.value = String(s.id);
-            opt.textContent = `${s.battalionName || 'Đợt'} · ${EXAM_SESSION_STATUS_LABELS[s.status] || s.status} · ${formatExamDate(s.opensAt)}`;
+            const status = EXAM_SESSION_STATUS_LABELS[s.status] || s.status;
+            const names = String(s.battalionName || '')
+                .split(',')
+                .map(part => part.trim())
+                .filter(Boolean);
+            const who = names.length <= 1 ? names[0] || 'Đợt' : `${names.length} tiểu đoàn`;
+            opt.textContent = `${formatExamDate(s.opensAt)} · ${status} · ${who}`;
+            opt.title = s.battalionName || '';
             select.appendChild(opt);
         });
         if (!sessions.some(s => String(s.id) === current)) {
@@ -1496,7 +1488,7 @@ export class AdminController {
             const empty = document.createElement('p');
             empty.className = 'admin-choice-empty';
             empty.textContent =
-                'Chưa có tiểu đoàn hiển thị. Thêm hoặc bật tiểu đoàn trong Cài đặt.';
+                'Chưa có tiểu đoàn hiển thị. Thêm hoặc bật tiểu đoàn trong Quản lý người dùng.';
             list.appendChild(empty);
         } else {
             active.forEach(b => {

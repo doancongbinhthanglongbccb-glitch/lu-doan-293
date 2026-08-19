@@ -50,15 +50,15 @@ Các giá trị dưới đây nằm trong `backend/src/config/constants.js` và 
 1. Duyệt / từ chối tài khoản **Chờ duyệt**.
 2. Gán **Tiểu đoàn** cho user (dropdown thấy cả tiểu đoàn ẩn).
 3. Lọc theo tiểu đoàn khi cần rà soát.
+4. Sub-tab **Tiểu đoàn:** CRUD tiểu đoàn (ẩn/hiện trên form đăng ký; xóa chỉ khi 0 người).
 
 Lính **phải** thuộc tiểu đoàn active mới đăng ký được; **phải** có `battalion_id` mới vào được đợt Kiểm tra của tiểu đoàn đó.
 
 ### 3.3 Cài đặt
 
-- **Dashboard đăng ký:** số user / tiểu đoàn + **đã thi Kiểm tra ≥ 1 lần**, điểm TB / cao / thấp (chỉ tính `exam_results`).
-- **Ôn tập tổng hợp:** số câu/bộ, số bộ N, nút **Tái tạo bộ**.
-- **Buffer Kiểm tra** (phút).
-- **CRUD tiểu đoàn:** ẩn/hiện trên form đăng ký; xóa chỉ khi 0 user.
+- **Ôn tập tổng hợp:** số câu/bộ, số bộ, nút **Tái tạo bộ**.
+- **Kiểm tra:** thời gian đệm (phút).
+- **Lưu** ghi cả hai nhóm.
 
 ### 3.4 Đợt kiểm tra
 

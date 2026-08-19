@@ -217,7 +217,10 @@ export class ApiAuthProvider extends AuthProvider {
      */
     async reloadUsers(battalionId) {
         this._usersCache = null;
-        return this.initUsers(battalionId ?? this._usersBattalionFilter);
+        if (arguments.length === 0) {
+            return this.initUsers(this._usersBattalionFilter);
+        }
+        return this.initUsers(battalionId || undefined);
     }
 
     /** @param {string} militaryId */
