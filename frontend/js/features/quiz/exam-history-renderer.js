@@ -23,6 +23,15 @@ export function formatExamScore(record) {
 }
 
 /**
+ * @param {object} record
+ * @returns {string}
+ */
+export function formatAdminBranchLabel(record) {
+    if (record.branch === 'mixed') return 'Trộn tổng hợp';
+    return record.topicTitle || 'Lĩnh vực';
+}
+
+/**
  * Normalize a raw exam history record for display.
  * @param {object} record
  * @returns {object}
@@ -78,7 +87,7 @@ export function renderAdminHistoryTable(tbody, records, emptyMessage) {
             `<td><code class="user-id">${escapeAttr(row.militaryId)}</code></td>` +
             `<td>${escapeAttr(row.fullName)}</td>` +
             `<td>${escapeAttr(row.battalionName)}</td>` +
-            `<td>${escapeAttr(row.modeLabel)}</td>` +
+            `<td>${escapeAttr(formatAdminBranchLabel(record))}</td>` +
             `<td><strong>${escapeAttr(row.scoreText)}</strong></td>` +
             `<td>${row.total}</td>` +
             `<td>${escapeAttr(row.duration)}</td>` +

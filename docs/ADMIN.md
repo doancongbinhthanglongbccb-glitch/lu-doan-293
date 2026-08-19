@@ -62,16 +62,17 @@ Lính **phải** thuộc tiểu đoàn active mới đăng ký được; **phả
 
 ### 3.4 Đợt kiểm tra
 
-1. **+ Tạo đợt:** chọn một hoặc nhiều tiểu đoàn, số câu/bộ, số bộ, thời gian làm bài, giờ mở — đóng.
-2. **Mở đợt:** sinh bộ đề cho **cả** nhánh Theo lĩnh vực (từng lĩnh vực gốc đủ câu) **và** Trộn tổng hợp (nếu pool đủ). Một tiểu đoàn không được nằm trong 2 đợt `open` cùng lúc.
-3. **Đóng đợt:** lính không bắt đầu mới; bài đang làm auto-submit khi hết giờ đợt.
-4. **Tái tạo đề** (draft/đóng): xóa assignment cũ, sinh lại bộ.
-5. **Ma trận tiến độ:** chọn đợt → bảng Tiểu đoàn × (từng lĩnh vực + Trộn). Ô = `đã hoàn thành / quân số approved`. Ô **—** = lĩnh vực chưa sinh đề trong đợt đó.
+Trong tab **Đợt kiểm tra** có 3 sub-tab (mặc định: Quản lý đợt):
 
-### 3.5 Lịch sử Kiểm tra
+1. **Quản lý đợt**
+   - **+ Tạo đợt:** chọn một hoặc nhiều tiểu đoàn, số câu/bộ, số bộ, thời gian làm bài, giờ mở — đóng.
+   - **Mở đợt:** sinh bộ đề cho **cả** nhánh Theo lĩnh vực (từng lĩnh vực gốc đủ câu) **và** Trộn tổng hợp (nếu pool đủ). Một tiểu đoàn không được nằm trong 2 đợt `open` cùng lúc.
+   - **Đóng đợt:** lính không bắt đầu mới; bài đang làm auto-submit khi hết giờ đợt.
+   - **Tái tạo đề** (draft/đóng): xóa assignment cũ, sinh lại bộ.
+2. **Tiến độ:** chọn đợt → bảng Tiểu đoàn × (từng lĩnh vực + Trộn). Ô = `đã hoàn thành / quân số approved`. Ô **—** = lĩnh vực chưa sinh đề trong đợt đó.
+3. **Lịch sử Kiểm tra:** lọc tiểu đoàn, nhánh (tất cả / lĩnh vực / trộn), tìm theo số QN hoặc họ tên. Chỉ kết quả từ bảng `exam_results`.
 
-- Lọc tiểu đoàn, nhánh (tất cả / lĩnh vực / trộn), tìm theo số QN hoặc họ tên.
-- Chỉ hiển thị kết quả từ bảng `exam_results` (không còn Thi thử trên UI).
+Link cũ `#panelHistory` vẫn mở đúng sub-tab Lịch sử Kiểm tra.
 
 ---
 

@@ -408,18 +408,22 @@ export function getQuizData() {
         )
         .all();
 
-    const getQuestions = db.prepare(
-        `SELECT hash, type, payload FROM questions WHERE topic_id = ? ORDER BY id ASC`
-    );
-
-    const loadQuestions = topicId =>
-        getQuestions.all(topicId).map(q => {
-            try {
-                return JSON.parse(q.payload);
-            } catch {
-                return { hash: q.hash, type: q.type };
-            }
-        });
+    const questionRows = db
+        .prepare('SELECT topic_id, hash, type, payload FROM questions ORDER BY id ASC')
+        .all();
+    const questionsByTopic = new Map();
+    for (const q of questionRows) {
+        let parsed;
+        try {
+            parsed = JSON.parse(q.payload);
+        } catch {
+            parsed = { hash: q.hash, type: q.type };
+        }
+        const list = questionsByTopic.get(q.topic_id);
+        if (list) list.push(parsed);
+        else questionsByTopic.set(q.topic_id, [parsed]);
+    }
+    const loadQuestions = topicId => questionsByTopic.get(topicId) || [];
 
     const childRows = rows.filter(r => r.parent_id != null);
     const rootRows = rows.filter(r => r.parent_id == null);

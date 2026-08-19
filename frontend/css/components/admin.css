@@ -127,6 +127,13 @@
     display: block;
 }
 
+.exam-subpanel {
+    display: none;
+}
+.exam-subpanel.active {
+    display: block;
+}
+
 /* Toolbar — title left, actions right */
 .admin-toolbar {
     display: flex;
@@ -574,23 +581,155 @@
     color: var(--text-muted);
     font-size: 14px;
 }
-.checkbox-label {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
+.admin-field-battalions {
+    margin-bottom: 4px;
+}
+.admin-field-label {
+    display: block;
     font-weight: 500;
+    margin-bottom: 8px;
+    color: var(--text-muted);
+    font-size: 14px;
+}
+.admin-toolbar--end {
+    justify-content: flex-end;
+}
+.admin-toolbar--end .toolbar-title {
+    margin-right: auto;
+}
+.admin-hint-inline {
+    margin: 0;
+    flex: 1 1 200px;
+}
+.admin-toolbar--end .admin-hint-inline {
+    margin-right: auto;
+    text-align: left;
+}
+.admin-stats--compact {
+    margin-bottom: 12px;
+}
+.admin-field-battalions .admin-hint {
+    margin: 10px 0 0;
 }
 
-.exam-battalion-list {
-    max-height: 180px;
-    overflow-y: auto;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 8px 10px;
+.exam-schedule-block {
+    margin-bottom: 4px;
+}
+.exam-schedule-grid {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 10px;
+    border: 1.5px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    background: #fff;
+}
+.exam-schedule-row {
+    display: grid;
+    grid-template-columns: 52px 1fr 1fr;
+    gap: 10px;
+    align-items: center;
+}
+.exam-schedule-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--military-blue);
+}
+.exam-schedule-row input[type='date'],
+.exam-schedule-row input[type='time'] {
+    width: 100%;
+    min-height: 40px;
+    padding: 8px 10px;
+    border: 1.5px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-family: var(--font-body);
+    color: var(--text-main);
+    background: #fff;
+    box-sizing: border-box;
+}
+.exam-schedule-row input:focus {
+    outline: none;
+    border-color: var(--blue-accent);
+    box-shadow: var(--shadow-focus);
+}
+
+.admin-choice-list {
+    display: flex;
+    flex-direction: column;
+    border: 1.5px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: #fff;
+    overflow: hidden;
+}
+.admin-choice-list--scroll {
+    max-height: 220px;
+    overflow-y: auto;
+}
+.input-group label.admin-choice-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    cursor: pointer;
+    font-weight: 500;
+    color: var(--text-main);
+    margin: 0;
+    border-bottom: 1px solid #f1f5f9;
+    transition: background 150ms ease;
+}
+.admin-choice-item:last-child {
+    border-bottom: none;
+}
+.admin-choice-item:hover {
+    background: #f8fafc;
+}
+.admin-choice-item:focus-within {
+    background: #f1f5f9;
+    box-shadow: inset 0 0 0 1px var(--primary);
+}
+.input-group label.admin-choice-item input[type='checkbox'] {
+    width: 16px;
+    height: 16px;
+    min-width: 16px;
+    min-height: 16px;
+    margin: 0;
+    padding: 0;
+    flex: 0 0 16px;
+    border-radius: 3px;
+    accent-color: var(--primary);
+}
+.admin-choice-text {
+    flex: 1 1 auto;
+    min-width: 0;
+    line-height: 1.4;
+    font-size: 14px;
+    color: var(--text-main);
+}
+.admin-choice-empty {
+    padding: 12px;
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.45;
+}
+
+.input-group > label.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 0;
+    color: var(--text-main);
+    cursor: pointer;
+}
+.input-group > label.checkbox-label input[type='checkbox'] {
+    width: 16px;
+    height: 16px;
+    min-width: 16px;
+    padding: 0;
+    margin: 0;
+    flex: 0 0 16px;
+    accent-color: var(--primary);
 }
 
 .user-id {

@@ -646,7 +646,7 @@ export function listResultsAdmin({
 }
 
 /**
- * Ma trận tiến độ: tiểu đoàn × lĩnh vực gốc (+ cột Trộn) cho một đợt.
+ * Tiến độ: tiểu đoàn × lĩnh vực gốc (+ cột Trộn) cho một đợt.
  * Ô chưa từng có kết quả = null (UI hiện "—").
  * @param {number} sessionId
  */

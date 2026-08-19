@@ -21,7 +21,7 @@ import { ModalManager } from '../../ui/modal-manager.js';
 import { Toast } from '../../ui/toast.js';
 import { showLoading, hideLoading } from '../../ui/loading.js';
 import { handleError } from '../../utils/errors.js';
-import { renderAdminHistoryTable } from '../quiz/exam-history-renderer.js';
+import { formatExamDate, renderAdminHistoryTable } from '../quiz/exam-history-renderer.js';
 import { apiClient } from '../../services/api/api-client.js';
 import { unwrapPayload, pickBattalions, pickStats, pickSettings } from '../../services/api/api-response.js';
 import * as checkExamApi from '../../services/exam/check-exam-api.js';
@@ -37,6 +37,12 @@ import {
     findTopicTitleConflict,
     quizPayloadWouldCycle
 } from '../../core/topic-tree.js';
+
+const EXAM_SESSION_STATUS_LABELS = {
+    draft: 'Nháp',
+    open: 'Đang mở',
+    closed: 'Đã đóng'
+};
 
 /**
  * Admin panel controller — CRUD topics/questions, Excel, user management.
@@ -62,6 +68,8 @@ export class AdminController {
         this.examSessions = [];
         this.userBattalionFilter = '';
         this.progressMatrixSessionId = '';
+        /** @type {'sessions'|'matrix'|'history'} */
+        this.examTab = 'sessions';
     }
 
     /** Initialize admin panel */
@@ -69,7 +77,7 @@ export class AdminController {
         const currentUser = await auth.requireAdminAsync();
         if (!currentUser) return;
 
-        $('adminUserName').textContent = currentUser.fullName || 'Admin';
+        $('adminUserName').textContent = currentUser.fullName || 'Quản trị viên';
         this.bindEvents();
         this.bindUserEvents();
         this.bindBattalionEvents();
@@ -93,6 +101,8 @@ export class AdminController {
         } finally {
             hideLoading();
         }
+
+        this._applyExamLocationHash();
     }
 
     async _loadData() {
@@ -136,13 +146,11 @@ export class AdminController {
         const leaves = countLeafTopics(this.quizData);
         const statTopics = $('statTopics');
         const statQuestions = $('statQuestions');
-        const statTitle = $('statTitle');
         if (statTopics) {
             statTopics.textContent =
                 parents > 0 ? `${parents} nhóm / ${leaves} môn` : String(leaves);
         }
         if (statQuestions) statQuestions.textContent = countAllQuestions(this.quizData);
-        if (statTitle) statTitle.textContent = this.quizData.title || '—';
     }
 
     _bindAddChildBtn(rowEl, p) {
@@ -251,13 +259,13 @@ export class AdminController {
         const isParentGroup = parent && isTopicParent(parent) && this.selectedTopicRef.c == null;
 
         $('currentTopicTitle').textContent = isParentGroup
-            ? `${parent.title} (chọn môn con)`
+            ? parent.title
             : getTopicDisplayTitle(this.quizData, this.selectedTopicRef);
 
         if (isParentGroup) {
             $('questionCountBadge').textContent = '0 câu';
             $('questionTableBody').innerHTML =
-                '<tr><td colspan="4" class="empty-cell">Nhóm này đã có môn con — chọn một môn con bên trái để quản lý câu hỏi.</td></tr>';
+                '<tr><td colspan="4" class="empty-cell">Chọn môn con bên trái.</td></tr>';
             return;
         }
 
@@ -350,7 +358,7 @@ export class AdminController {
                 this.quizData.topics.forEach((t, p) => {
                     const opt = document.createElement('option');
                     opt.value = String(p);
-                    opt.textContent = isTopicParent(t) ? t.title : `${t.title} (thêm môn con)`;
+                    opt.textContent = t.title;
                     parentSelect.appendChild(opt);
                 });
                 if (isTopicParent(this.quizData.topics[this.selectedTopicRef.p])) {
@@ -488,7 +496,7 @@ export class AdminController {
         if (!topic.questions.length) return Toast.warning('Chủ đề này chưa có câu hỏi.');
         ModalManager.confirm({
             title: 'Xóa câu hỏi',
-            message: `Xóa hết ${topic.questions.length} câu hỏi trong chủ đề "${topic.title}"?\nChủ đề vẫn được giữ lại.`,
+            message: `Xóa hết ${topic.questions.length} câu trong "${topic.title}"?`,
             onConfirm: async () => {
                 topic.questions = [];
                 await this.saveData();
@@ -548,7 +556,7 @@ export class AdminController {
         row.className = 'answer-row answer-row-essay';
         row.innerHTML =
             '<label class="answer-essay-label">Đáp án mẫu <span class="hint-inline">(Enter để xuống dòng như Excel)</span></label>' +
-            '<textarea class="ans-html ans-textarea" rows="10" placeholder="Nhập đáp án mẫu, giữ nguyên xuống dòng"></textarea>';
+            '<textarea class="ans-html ans-textarea" rows="10" placeholder="Đáp án mẫu"></textarea>';
         row.querySelector('.ans-html').value = htmlToEditText(data.html || '');
         container.appendChild(row);
     }
@@ -583,7 +591,7 @@ export class AdminController {
     updateAnswersLabel() {
         const label = $('answersLabel');
         if (!label) return;
-        label.textContent = 'Đáp án (tick ✓ = đáp án đúng)';
+        label.textContent = 'Đáp án đúng (✓)';
     }
 
     collectQuestionFromForm() {
@@ -644,7 +652,7 @@ export class AdminController {
     }
 
     /**
-     * Import Excel vào topic đang chọn.
+     * Nhập Excel vào topic đang chọn.
      * @param {File} file
      */
     importExcel(file) {
@@ -676,32 +684,22 @@ export class AdminController {
                     const parent = this.quizData.topics[this.selectedTopicRef.p];
                     if (parent && isTopicParent(parent)) {
                         return Toast.error(
-                            'Nhóm này đã có môn con — hãy chọn một môn con bên trái để import.'
+                            'Nhóm này đã có môn con — hãy chọn một môn con bên trái để nhập.'
                         );
                     }
-                    return Toast.error('Chọn chủ đề để import.');
+                    return Toast.error('Chọn chủ đề để nhập.');
                 }
 
-                const preview = mcQuestions
-                    .slice(0, 2)
-                    .map((q, i) => `${i + 1}. ${htmlToText(q.contentHtml).substring(0, 60)}`)
-                    .join('\n');
-
                 const confirmMsg =
-                    `Import ${mcQuestions.length} câu trắc nghiệm vào chủ đề "${currentTopic.title}"?\n\n` +
-                    (skippedEssay
-                        ? `• Đã bỏ qua ${skippedEssay} câu tự luận\n\n`
-                        : '') +
-                    `Xem trước:\n${preview}${mcQuestions.length > 2 ? '\n...' : ''}` +
-                    (warnings.length
-                        ? `\n\n⚠ ${warnings.length} cảnh báo (đáp án không khớp):\n${warnings.slice(0, 3).join('\n')}${warnings.length > 3 ? '\n...' : ''}`
-                        : '');
+                    `Nhập ${mcQuestions.length} câu vào "${currentTopic.title}"?` +
+                    (skippedEssay ? `\n(Bỏ qua ${skippedEssay} câu tự luận)` : '') +
+                    (warnings.length ? `\n${warnings.length} cảnh báo đáp án.` : '');
 
                 ModalManager.confirm({
-                    title: 'Xác nhận Import',
+                    title: 'Xác nhận nhập',
                     message: confirmMsg,
                     onConfirm: async () => {
-                        showLoading(`Đang import ${mcQuestions.length} câu hỏi...`);
+                        showLoading(`Đang nhập ${mcQuestions.length} câu hỏi...`);
 
                         try {
                             const topicId =
@@ -719,7 +717,7 @@ export class AdminController {
                             const result = unwrapPayload(data);
 
                             Toast.success(
-                                `Import thành công ${result.added ?? mcQuestions.length} câu hỏi!`
+                                `Nhập thành công ${result.added ?? mcQuestions.length} câu hỏi!`
                             );
 
                             await this._loadData();
@@ -728,7 +726,7 @@ export class AdminController {
                             this.renderQuestionList();
                         } catch (err) {
                             console.error(err);
-                            Toast.error('Import thất bại: ' + err.message);
+                            Toast.error('Nhập thất bại: ' + err.message);
                         } finally {
                             hideLoading();
                         }
@@ -817,6 +815,25 @@ export class AdminController {
     // ——— User management ———
 
     switchSection(section) {
+        if (section === 'history') {
+            this._activateMainSection('exam');
+            this.switchExamSubtab('history');
+            return;
+        }
+        this._activateMainSection(section);
+        if (section === 'users') this.renderUserTable();
+        if (section === 'settings') {
+            this.loadBattalionDashboard();
+            this.renderQuizSettings();
+            this.renderBattalionTable();
+        }
+        if (section === 'exam') this.switchExamSubtab('sessions');
+    }
+
+    /**
+     * @param {string} section
+     */
+    _activateMainSection(section) {
         document.querySelectorAll('.admin-section-btn').forEach(btn => {
             const active = btn.dataset.section === section;
             btn.classList.toggle('active', active);
@@ -826,15 +843,38 @@ export class AdminController {
         $('panelUsers').classList.toggle('active', section === 'users');
         $('panelSettings').classList.toggle('active', section === 'settings');
         $('panelExam').classList.toggle('active', section === 'exam');
-        $('panelHistory').classList.toggle('active', section === 'history');
-        if (section === 'users') this.renderUserTable();
-        if (section === 'settings') {
-            this.loadBattalionDashboard();
-            this.renderQuizSettings();
-            this.renderBattalionTable();
+    }
+
+    /**
+     * @param {'sessions'|'matrix'|'history'} tab
+     */
+    switchExamSubtab(tab) {
+        const next = tab === 'matrix' || tab === 'history' ? tab : 'sessions';
+        this.examTab = next;
+        document.querySelectorAll('.exam-subtab').forEach(btn => {
+            const active = btn.dataset.examtab === next;
+            btn.classList.toggle('active', active);
+            btn.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+        const sessionsEl = $('examSubSessions');
+        const matrixEl = $('examSubMatrix');
+        const historyEl = $('panelHistory');
+        if (sessionsEl) sessionsEl.classList.toggle('active', next === 'sessions');
+        if (matrixEl) matrixEl.classList.toggle('active', next === 'matrix');
+        if (historyEl) historyEl.classList.toggle('active', next === 'history');
+
+        if (next === 'history') {
+            this.loadHistoryTable();
+        } else {
+            this.loadExamSessions();
         }
-        if (section === 'exam') this.loadExamSessions();
-        if (section === 'history') this.loadHistoryTable();
+    }
+
+    _applyExamLocationHash() {
+        const hash = (window.location.hash || '').replace(/^#/, '');
+        if (hash === 'panelHistory' || hash === 'history') {
+            this.switchSection('history');
+        }
     }
 
     getFilteredUsers() {
@@ -865,9 +905,6 @@ export class AdminController {
         setText('pendingCount', pending);
         setText('rejectedCount', rejected);
         setText('approvedCount', approved);
-        setText('statUserPending', pending);
-        setText('statUserRejected', rejected);
-        setText('statUserApproved', approved);
     }
 
     statusBadgeClass(status) {
@@ -899,7 +936,7 @@ export class AdminController {
                 actions += `<button class="btn-sm btn-green user-approve" data-id="${u.militaryId}">Duyệt lại</button> `;
             }
             actions += `<button class="btn-sm btn-edit user-edit" data-id="${u.militaryId}">Sửa</button> `;
-            actions += `<button class="btn-sm btn-blue user-reset" data-id="${u.militaryId}">Reset MK</button> `;
+            actions += `<button class="btn-sm btn-blue user-reset" data-id="${u.militaryId}">Đặt lại MK</button> `;
             if (!isAdmin || auth.getUsers().filter(x => x.role === 'admin').length > 1) {
                 actions += `<button class="btn-sm btn-delete user-delete" data-id="${u.militaryId}">Xóa</button>`;
             }
@@ -908,7 +945,7 @@ export class AdminController {
                 `<td><code class="user-id">${u.militaryId}</code></td>` +
                 `<td>${escapeAttr(u.fullName || '—')}</td>` +
                 `<td>${escapeAttr(u.battalionName || '—')}</td>` +
-                `<td><span class="role-badge role-${u.role}">${u.role === 'admin' ? 'Admin' : 'User'}</span></td>` +
+                `<td><span class="role-badge role-${u.role}">${u.role === 'admin' ? 'Quản trị' : 'Người dùng'}</span></td>` +
                 `<td><span class="status-badge ${this.statusBadgeClass(u.status)}">${auth.getStatusLabel(u.status)}</span></td>` +
                 `<td class="actions-cell user-actions">${actions}</td>`;
             tbody.appendChild(tr);
@@ -1026,10 +1063,13 @@ export class AdminController {
             };
         });
 
-        $('userSearchInput').oninput = e => {
-            this.userSearchQuery = e.target.value.trim();
-            this.renderUserTable();
-        };
+        const searchInput = $('userSearchInput');
+        if (searchInput) {
+            searchInput.oninput = e => {
+                this.userSearchQuery = e.target.value.trim();
+                this.renderUserTable();
+            };
+        }
 
         const battalionFilter = $('userBattalionFilter');
         if (battalionFilter) {
@@ -1047,10 +1087,10 @@ export class AdminController {
             };
         }
 
-        $('btnCancelEditUser').onclick = () => ModalManager.close('userEditModal');
-        $('btnSaveEditUser').onclick = () => this.saveEditUser();
-        $('btnCancelResetPwd').onclick = () => ModalManager.close('userResetPwdModal');
-        $('btnConfirmResetPwd').onclick = () => this.confirmResetPwd();
+        this._bindClick('btnCancelEditUser', () => ModalManager.close('userEditModal'));
+        this._bindClick('btnSaveEditUser', () => this.saveEditUser());
+        this._bindClick('btnCancelResetPwd', () => ModalManager.close('userResetPwdModal'));
+        this._bindClick('btnConfirmResetPwd', () => this.confirmResetPwd());
     }
 
     // ——— Battalion management ———
@@ -1109,7 +1149,7 @@ export class AdminController {
             const stats = pickStats(data) || [];
             const container = $('battalionDashboardStats');
             if (!container) return;
-            container.innerHTML = '<p class="admin-hint">Tổng số người dùng đã đăng ký theo tiểu đoàn. Đã thi / điểm chỉ tính bài Kiểm tra.</p>';
+            container.replaceChildren();
             stats.forEach(row => {
                 const card = document.createElement('div');
                 card.className = 'stat-card';
@@ -1143,7 +1183,7 @@ export class AdminController {
             const canDelete = (b.userCount ?? 0) === 0;
             const deleteBtn = canDelete
                 ? `<button class="btn-sm btn-delete battalion-delete" data-id="${b.id}">Xóa</button>`
-                : `<button class="btn-sm btn-delete" disabled title="Còn ${b.userCount} user — chuyển họ sang tiểu đoàn khác trước khi xóa">Xóa</button>`;
+                : `<button class="btn-sm btn-delete" disabled title="Còn ${b.userCount} user">Xóa</button>`;
 
             tr.innerHTML =
                 `<td>${escapeAttr(b.name)}</td>` +
@@ -1342,7 +1382,7 @@ export class AdminController {
         sessions.forEach(s => {
             const opt = document.createElement('option');
             opt.value = String(s.id);
-            opt.textContent = `${s.battalionName || 'Đợt'} · ${s.status} · ${s.opensAt || ''}`;
+            opt.textContent = `${s.battalionName || 'Đợt'} · ${EXAM_SESSION_STATUS_LABELS[s.status] || s.status} · ${formatExamDate(s.opensAt)}`;
             select.appendChild(opt);
         });
         if (!sessions.some(s => String(s.id) === current)) {
@@ -1406,13 +1446,13 @@ export class AdminController {
         if (!tbody) return;
         tbody.innerHTML = '';
         const sessions = this.examSessions || [];
+        const statusLabels = EXAM_SESSION_STATUS_LABELS;
         if (!sessions.length) {
-            tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">Chưa có đợt kiểm tra.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" class="empty-cell">Chưa có đợt kiểm tra.</td></tr>';
             return;
         }
         sessions.forEach(s => {
             const tr = document.createElement('tr');
-            const typeLabel = 'Lĩnh vực + Trộn';
             let actions = '';
             if (s.status === 'draft') {
                 actions += `<button class="btn-sm btn-green exam-open" data-id="${s.id}">Mở</button> `;
@@ -1426,12 +1466,12 @@ export class AdminController {
             const regenBadge = s.needsRegeneration
                 ? '<span class="status-badge status-pending">Cần tái tạo</span>'
                 : '';
+            const statusLabel = statusLabels[s.status] || s.status;
             tr.innerHTML =
                 `<td>${escapeAttr(s.battalionName || '')}</td>` +
-                `<td>${escapeAttr(typeLabel)}</td>` +
                 `<td>${s.questionsPerSet} × ${s.numberOfSets} bộ</td>` +
-                `<td>${escapeAttr(s.opensAt)} → ${escapeAttr(s.closesAt)}</td>` +
-                `<td><span class="status-badge">${s.status}</span> ${regenBadge}</td>` +
+                `<td>${escapeAttr(formatExamDate(s.opensAt))} → ${escapeAttr(formatExamDate(s.closesAt))}</td>` +
+                `<td><span class="status-badge">${escapeAttr(statusLabel)}</span> ${regenBadge}</td>` +
                 `<td class="actions-cell">${actions}</td>`;
             tbody.appendChild(tr);
         });
@@ -1448,17 +1488,50 @@ export class AdminController {
 
     openExamSessionModal() {
         const list = $('examSessionBattalionList');
-        list.innerHTML = '';
-        this.battalions
-            .filter(b => b.isActive)
-            .forEach(b => {
-                const label = document.createElement('label');
-                label.className = 'checkbox-label';
-                label.innerHTML =
-                    `<input type="checkbox" class="exam-battalion-chk" value="${b.id}"> ${escapeAttr(b.name)}`;
-                list.appendChild(label);
+        list.replaceChildren();
+        const active = this.battalions.filter(b => b.isActive);
+        list.classList.toggle('admin-choice-list--scroll', active.length > 6);
+
+        if (!active.length) {
+            const empty = document.createElement('p');
+            empty.className = 'admin-choice-empty';
+            empty.textContent =
+                'Chưa có tiểu đoàn hiển thị. Thêm hoặc bật tiểu đoàn trong Cài đặt.';
+            list.appendChild(empty);
+        } else {
+            active.forEach(b => {
+                const row = document.createElement('label');
+                row.className = 'admin-choice-item';
+                const input = document.createElement('input');
+                input.type = 'checkbox';
+                input.className = 'exam-battalion-chk';
+                input.value = String(b.id);
+                const text = document.createElement('span');
+                text.className = 'admin-choice-text';
+                text.textContent = b.name;
+                row.appendChild(input);
+                row.appendChild(text);
+                list.appendChild(row);
             });
+        }
+        ['examSessionOpensDate', 'examSessionOpensTime', 'examSessionClosesDate', 'examSessionClosesTime'].forEach(
+            id => {
+                const el = $(id);
+                if (el) el.value = '';
+            }
+        );
         ModalManager.open('examSessionModal');
+    }
+
+    /**
+     * Gộp input date + time thành Date local.
+     */
+    _combineDateTimeInputs(dateId, timeId) {
+        const dateVal = $(dateId)?.value;
+        const timeVal = $(timeId)?.value;
+        if (!dateVal || !timeVal) return null;
+        const dt = new Date(`${dateVal}T${timeVal}`);
+        return Number.isNaN(dt.getTime()) ? null : dt;
     }
 
     async saveExamSession() {
@@ -1469,14 +1542,25 @@ export class AdminController {
             Toast.warning('Vui lòng chọn ít nhất một tiểu đoàn.');
             return;
         }
+        const opensAtDate = this._combineDateTimeInputs('examSessionOpensDate', 'examSessionOpensTime');
+        const closesAtDate = this._combineDateTimeInputs('examSessionClosesDate', 'examSessionClosesTime');
+        if (!opensAtDate || !closesAtDate) {
+            Toast.warning('Vui lòng chọn đủ ngày và giờ mở/đóng đợt.');
+            return;
+        }
+        if (opensAtDate >= closesAtDate) {
+            Toast.warning('Thời gian mở đợt phải trước thời gian đóng đợt.');
+            return;
+        }
+
         const body = {
             battalionIds,
             type: 'mixed',
             questionsPerSet: parseInt($('examSessionQPerSet').value, 10),
             numberOfSets: parseInt($('examSessionNumSets').value, 10),
             durationMinutes: parseInt($('examSessionDuration').value, 10),
-            opensAt: new Date($('examSessionOpensAt').value).toISOString(),
-            closesAt: new Date($('examSessionClosesAt').value).toISOString()
+            opensAt: opensAtDate.toISOString(),
+            closesAt: closesAtDate.toISOString()
         };
         showLoading('Đang tạo...');
         try {
@@ -1566,12 +1650,16 @@ export class AdminController {
                 this.loadProgressMatrix();
             };
         }
+        document.querySelectorAll('.exam-subtab').forEach(btn => {
+            btn.onclick = () => this.switchExamSubtab(btn.dataset.examtab);
+        });
+        window.addEventListener('hashchange', () => this._applyExamLocationHash());
     }
 
     // ——— Exam history (admin) ———
 
     bindHistoryEvents() {
-        $('btnReloadHistory').onclick = () => this.loadHistoryTable();
+        this._bindClick('btnReloadHistory', () => this.loadHistoryTable());
 
         const typeFilter = $('historyTypeFilter');
         if (typeFilter) {
@@ -1589,15 +1677,18 @@ export class AdminController {
             };
         }
 
-        $('historySearchInput').oninput = e => {
-            this.historySearchQuery = e.target.value.trim();
-            if (this._historySearchTimer) clearTimeout(this._historySearchTimer);
-            this._historySearchTimer = setTimeout(() => {
-                if ($('panelHistory').classList.contains('active')) {
-                    this.loadHistoryTable();
-                }
-            }, 350);
-        };
+        const historySearch = $('historySearchInput');
+        if (historySearch) {
+            historySearch.oninput = e => {
+                this.historySearchQuery = e.target.value.trim();
+                if (this._historySearchTimer) clearTimeout(this._historySearchTimer);
+                this._historySearchTimer = setTimeout(() => {
+                    if (this.examTab === 'history' && $('panelExam')?.classList.contains('active')) {
+                        this.loadHistoryTable();
+                    }
+                }, 350);
+            };
+        }
     }
 
     async loadHistoryTable() {
@@ -1625,9 +1716,7 @@ export class AdminController {
             : 'Chưa có kết quả Kiểm tra nào trong hệ thống.';
         const records = this.historyRecords || [];
         const countEl = $('statHistoryCount');
-        const shownEl = $('statHistoryShown');
         if (countEl) countEl.textContent = String(records.length);
-        if (shownEl) shownEl.textContent = String(records.length);
         renderAdminHistoryTable($('historyTableBody'), records, emptyMessage);
     }
 }
