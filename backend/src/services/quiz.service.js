@@ -8,6 +8,10 @@ export function getQuiz() {
     return quizModel.getQuizData();
 }
 
+export function getQuizOutline() {
+    return quizModel.getQuizOutline();
+}
+
 /**
  * @param {object} data
  */
@@ -76,6 +80,47 @@ export function saveWrongHistory(userId, body) {
         sanitizeHistoryMap(body.wrongHistory),
         sanitizeHistoryMap(body.correctHistory)
     );
+}
+
+function shuffleList(arr) {
+    const copy = [...arr];
+    for (let i = copy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+    }
+    return copy;
+}
+
+/**
+ * Câu ôn sai của chính user — không nhận userId/hash từ client.
+ * @param {number} userId
+ * @param {{ topicIds?: unknown, minWrongCount?: unknown, count?: unknown }} body
+ */
+export function getWrongReview(userId, body = {}) {
+    const minWrongCount = Math.max(1, parseInt(body.minWrongCount, 10) || 1);
+    const count = Math.max(1, parseInt(body.count, 10) || 20);
+    const topicIds = Array.isArray(body.topicIds)
+        ? body.topicIds.map(Number).filter(n => Number.isInteger(n) && n > 0)
+        : [];
+
+    const { wrongHistory } = wrongModel.getHistory(userId);
+    const hashes = Object.entries(wrongHistory)
+        .filter(([, n]) => Number(n) >= minWrongCount)
+        .map(([hash]) => hash);
+
+    const meta = quizModel.getQuizOutline();
+    if (!hashes.length) {
+        return { title: meta.title, questions: [] };
+    }
+
+    let questions = quizModel.getQuestionsByHashes(hashes);
+    if (topicIds.length) {
+        const allowed = new Set(topicIds);
+        questions = questions.filter(q => allowed.has(Number(q.topicId)));
+    }
+
+    questions = shuffleList(questions).slice(0, count);
+    return { title: meta.title, questions };
 }
 
 /**

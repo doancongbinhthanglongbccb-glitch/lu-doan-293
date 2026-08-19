@@ -9,7 +9,9 @@ const router = Router();
 
 router.use(requireAuth);
 
-router.get('/', quizController.getQuiz);
+router.get('/outline', quizController.getQuizOutline);
+
+router.get('/', requireAdmin, quizController.getQuiz);
 
 router.put('/', requireAdmin, quizController.putQuiz);
 
@@ -54,6 +56,8 @@ router.post(
 router.get('/wrong-history', quizController.getWrongHistory);
 
 router.post('/wrong-history', quizController.postWrongHistory);
+
+router.post('/wrong-review', quizController.postWrongReview);
 
 router.get('/history/all', requireAdmin, quizController.getAllQuizHistory);
 

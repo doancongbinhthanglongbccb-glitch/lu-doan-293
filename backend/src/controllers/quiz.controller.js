@@ -22,6 +22,15 @@ export function getQuiz(req, res, next) {
     }
 }
 
+export function getQuizOutline(req, res, next) {
+    try {
+        const outline = quizService.getQuizOutline();
+        sendSuccess(res, outline);
+    } catch (err) {
+        next(err);
+    }
+}
+
 export function putQuiz(req, res, next) {
     try {
         const quiz = quizService.saveQuiz(req.body);
@@ -53,6 +62,15 @@ export function postWrongHistory(req, res, next) {
     try {
         const history = quizService.saveWrongHistory(req.user.id, req.body);
         sendSuccess(res, history, 'Đã lưu lịch sử câu sai.');
+    } catch (err) {
+        next(err);
+    }
+}
+
+export function postWrongReview(req, res, next) {
+    try {
+        const payload = quizService.getWrongReview(req.user.id, req.body || {});
+        sendSuccess(res, payload);
     } catch (err) {
         next(err);
     }

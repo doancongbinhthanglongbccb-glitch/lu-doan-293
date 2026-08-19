@@ -8,6 +8,7 @@ export const STORAGE_PREFIX = 'cbquiz_';
 export const STORAGE_KEYS = {
     CURRENT_USER: `${STORAGE_PREFIX}current_user`,
     QUIZ_DATA: `${STORAGE_PREFIX}quiz_data`,
+    QUIZ_OUTLINE: `${STORAGE_PREFIX}quiz_outline`,
     USERS_DATA: `${STORAGE_PREFIX}users_data`,
     THEME: `${STORAGE_PREFIX}theme`,
     WRONG_HISTORY_PREFIX: `${STORAGE_PREFIX}wrong_history_`,

@@ -32,4 +32,5 @@ export function clearLocalSession() {
     TokenManager.removeToken();
     userRepo.clearCurrentUser();
     localStorageAdapter.remove(APP_CONFIG.STORAGE_KEYS.QUIZ_DATA);
+    localStorageAdapter.remove(APP_CONFIG.STORAGE_KEYS.QUIZ_OUTLINE);
 }

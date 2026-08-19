@@ -15,7 +15,6 @@ import {
 import { quizTimer } from '../../core/timer-service.js';
 import { createWrongHistoryService } from '../../core/wrong-history-service.js';
 import * as quizRepo from '../../storage/quiz-repository.js';
-import { repairEssayQuestions } from '../../services/excel/index.js';
 import { auth } from '../../services/auth/index.js';
 import { ScreenManager } from './screen-manager.js';
 import { GridRenderer } from './grid-renderer.js';
@@ -32,6 +31,7 @@ import { listSelectableLeaves, isTopicParent } from '../../core/topic-tree.js';
 import * as checkExamApi from '../../services/exam/check-exam-api.js';
 import * as practiceMixedApi from '../../services/quiz/practice-mixed-api.js';
 import * as topicReviewApi from '../../services/quiz/topic-review-api.js';
+import * as wrongReviewApi from '../../services/quiz/wrong-review-api.js';
 
 /**
  * Main quiz application controller — orchestrates UI and business logic.
@@ -88,7 +88,7 @@ export class QuizController {
                 correctHistory: historyState.correctHistory
             });
 
-            const originalData = await this._loadQuizData();
+            const originalData = await this._loadQuizOutline();
             store.setState({ originalData });
 
             this._setupHomeScreen(originalData);
@@ -103,14 +103,11 @@ export class QuizController {
     }
 
     /** @returns {Promise<object>} */
-    async _loadQuizData() {
-        const originalData = await quizRepo.loadQuizData();
-        repairEssayQuestions(originalData);
-        quizRepo.migrateHistoryHashes(originalData);
-        return originalData;
+    async _loadQuizOutline() {
+        return quizRepo.loadQuizOutline();
     }
 
-    /** Reload quiz bank when tab becomes visible (admin may have updated). */
+    /** Reload outline when tab becomes visible (admin may have updated). */
     _bindQuizDataRefresh() {
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible') {
@@ -121,7 +118,7 @@ export class QuizController {
 
     async _refreshQuizDataQuietly() {
         try {
-            const originalData = await this._loadQuizData();
+            const originalData = await this._loadQuizOutline();
             store.setState({ originalData });
             this._setupHomeScreen(originalData);
         } catch (err) {
@@ -339,63 +336,86 @@ export class QuizController {
     submitExam() {
         this._clearClosesAtWatcher();
         quizTimer.destroy();
-        const state = store.getState();
-        const answers = { ...state.answers };
-        let scoreCount = 0;
 
-        state.quizData.questions.forEach((q, i) => {
-            let st = answers[i];
-            const grade = gradeAnswer(q, st);
+        const finish = () => {
+            const state = store.getState();
+            const answers = { ...state.answers };
+            let scoreCount = 0;
 
-            if (grade.answered) {
-                if (!st) st = answers[i] = emptyAnswerState();
-                st.isCorrect = grade.isCorrect;
-                st.isLocked = true;
-                if (grade.isCorrect) scoreCount++;
-                this.wrongHistoryService.recordAnswer(
-                    q,
-                    grade.isCorrect && !st.doubtful,
-                    state.mode,
-                    state.reviewSubMode
-                );
-            } else {
-                answers[i] = {
-                    selected: [],
-                    textValue: '',
-                    doubtful: false,
-                    isLocked: true,
-                    isCorrect: false
-                };
-                this.wrongHistoryService.recordAnswer(q, false, state.mode, state.reviewSubMode);
-            }
-        });
-
-        const historyState = this.wrongHistoryService.getState();
-        store.setState({
-            answers,
-            scoreCount,
-            timeEndStr: formatDateTime(new Date()),
-            wrongHistory: historyState.wrongHistory,
-            correctHistory: historyState.correctHistory
-        });
-
-        this._updateWrongButtonVisibility();
-        this._showResultScreen();
-
-        if (state.mode === QUIZ_MODES.CHECK) {
-            this._saveCheckResult();
-        }
-        if (
-            state.mode === QUIZ_MODES.REVIEW &&
-            state.reviewSubMode === REVIEW_SUB_MODES.GENERAL &&
-            this.practiceMixedSetId
-        ) {
             state.quizData.questions.forEach((q, i) => {
-                if (q?.dbId && hasAnswer(answers[i])) {
-                    practiceMixedApi.recordProgress(this.practiceMixedSetId, q.dbId).catch(() => {});
+                let st = answers[i];
+                const grade = gradeAnswer(q, st);
+
+                if (grade.answered) {
+                    if (!st) st = answers[i] = emptyAnswerState();
+                    st.isCorrect = grade.isCorrect;
+                    st.isLocked = true;
+                    if (grade.isCorrect) scoreCount++;
+                    this.wrongHistoryService.recordAnswer(
+                        q,
+                        grade.isCorrect && !st.doubtful,
+                        state.mode,
+                        state.reviewSubMode
+                    );
+                } else {
+                    answers[i] = {
+                        selected: [],
+                        textValue: '',
+                        doubtful: false,
+                        isLocked: true,
+                        isCorrect: false
+                    };
+                    this.wrongHistoryService.recordAnswer(q, false, state.mode, state.reviewSubMode);
                 }
             });
+
+            const historyState = this.wrongHistoryService.getState();
+            store.setState({
+                answers,
+                scoreCount,
+                timeEndStr: formatDateTime(new Date()),
+                wrongHistory: historyState.wrongHistory,
+                correctHistory: historyState.correctHistory
+            });
+
+            this._updateWrongButtonVisibility();
+            this._showResultScreen();
+
+            if (
+                state.mode === QUIZ_MODES.REVIEW &&
+                state.reviewSubMode === REVIEW_SUB_MODES.GENERAL &&
+                this.practiceMixedSetId
+            ) {
+                state.quizData.questions.forEach((q, i) => {
+                    if (q?.dbId && hasAnswer(answers[i])) {
+                        practiceMixedApi.recordProgress(this.practiceMixedSetId, q.dbId).catch(() => {});
+                    }
+                });
+            }
+        };
+
+        const state = store.getState();
+        if (state.mode === QUIZ_MODES.CHECK) {
+            this._saveCheckResult()
+                .then(payload => {
+                    if (payload?.questions?.length) {
+                        const questions = payload.questions.map(q => {
+                            q.noShuffle = true;
+                            return prepareQuestion(q);
+                        });
+                        store.setState({
+                            quizData: { ...store.getState().quizData, questions }
+                        });
+                    }
+                    finish();
+                })
+                .catch(err => {
+                    handleError(err, { context: 'QuizController.submitExam', fallbackKey: 'NETWORK' });
+                });
+            return;
         }
+
+        finish();
     }
 
     /** Manual submit — require every question answered (timer auto-submit may leave blanks). */
@@ -450,7 +470,7 @@ export class QuizController {
         const { quizData, timeTotalStr, timeStartStr, timeEndStr } = state;
 
         try {
-            await checkExamApi.submitSession(sessionId, {
+            return await checkExamApi.submitSession(sessionId, {
                 topicId: state.checkTopicId,
                 durationSec: timerState.elapsed,
                 answers: (quizData.questions || []).map((q, i) => ({
@@ -469,6 +489,7 @@ export class QuizController {
         } catch (err) {
             console.warn('[QuizController] check submit failed:', err.message);
             Toast.error(err.message || 'Lưu kết quả kiểm tra thất bại.');
+            throw err;
         }
     }
 
@@ -759,7 +780,7 @@ export class QuizController {
     _createTopicReviewCard(item, idx, title, perSetCount, progress = null) {
         const card = document.createElement('div');
         card.className = 'topic-review-card';
-        const qCount = (item.topic.questions || []).length;
+        const qCount = item.topic.questionCount ?? (item.topic.questions || []).length;
         const perSet = Math.max(1, Number(perSetCount) || qCount || 1);
         const setCount = Math.max(1, Math.ceil(qCount / perSet));
         const answered = Math.max(0, Number(progress?.answered) || 0);
@@ -1105,8 +1126,10 @@ export class QuizController {
             topicContainer.style.display = 'block';
             let html =
                 '<label style="display:flex;align-items:center;margin-bottom:6px;font-weight:bold;cursor:pointer;"><input type="checkbox" id="wrongTopicAll" checked style="margin-right:8px;"> Chọn tất cả</label><hr style="border:0;border-top:1px solid #ddd;margin:8px 0;">';
-            leaves.forEach((item, i) => {
-                html += `<label style="display:flex;align-items:center;margin-bottom:6px;cursor:pointer;"><input type="checkbox" class="wrong-topic-chk" value="${i}" checked style="margin-right:8px;"> ${escapeAttr(item.label)}</label>`;
+            leaves.forEach(item => {
+                const tid = item.topic?.id;
+                if (!tid) return;
+                html += `<label style="display:flex;align-items:center;margin-bottom:6px;cursor:pointer;"><input type="checkbox" class="wrong-topic-chk" value="${tid}" checked style="margin-right:8px;"> ${escapeAttr(item.label)}</label>`;
             });
             topicList.innerHTML = html;
 
@@ -1201,41 +1224,47 @@ export class QuizController {
             Toast.info('Thi thử đã được gỡ. Dùng Kiểm tra khi admin mở đợt.');
         });
 
-        this._bindClick('btnStartWrongReview', () => {
+        this._bindClick('btnStartWrongReview', async () => {
             const count = parseInt($('wrongQCount').value, 10);
             const minCount = parseInt($('wrongMinCount').value, 10);
             if (isNaN(count) || count < 1) return Toast.warning('Số lượng không hợp lệ');
             if (isNaN(minCount) || minCount < 1) return Toast.warning('Số lần sai không hợp lệ');
 
             const { originalData } = store.getState();
-            let selectedTopics = [];
             const leaves = listSelectableLeaves(originalData);
+            let topicIds = [];
             if (leaves.length > 1) {
                 document.querySelectorAll('.wrong-topic-chk:checked').forEach(chk => {
-                    selectedTopics.push(parseInt(chk.value, 10));
+                    const id = parseInt(chk.value, 10);
+                    if (id > 0) topicIds.push(id);
                 });
-                if (selectedTopics.length === 0) return Toast.warning('Vui lòng chọn ít nhất một nội dung ôn tập.');
+                if (topicIds.length === 0) return Toast.warning('Vui lòng chọn ít nhất một nội dung ôn tập.');
             }
 
-            const allQ = QuizEngine.getFlatQuestionsFromTopics(
-                originalData,
-                selectedTopics.length ? selectedTopics : null
-            );
-            const uniqueQs = QuizEngine.deduplicateByHash(allQ);
-            const filtered = this.wrongHistoryService.filterWrongQuestions(uniqueQs, minCount);
-
-            if (filtered.length === 0) {
-                return Toast.warning(`Không có câu hỏi nào bị sai từ ${minCount} lần trở lên.`);
+            showLoading('Đang tải câu sai...');
+            try {
+                const payload = await wrongReviewApi.loadWrongReview({
+                    topicIds,
+                    minWrongCount: minCount,
+                    count
+                });
+                const raw = payload.questions || [];
+                if (!raw.length) {
+                    return Toast.warning(`Không có câu hỏi nào bị sai từ ${minCount} lần trở lên.`);
+                }
+                const questions = raw.map(q => prepareQuestion(q));
+                this._startQuizSession({
+                    mode: QUIZ_MODES.REVIEW,
+                    reviewSubMode: REVIEW_SUB_MODES.WRONG,
+                    quizData: { title: originalData.title || payload.title, questions },
+                    titleSuffix: ' (Ôn câu sai)',
+                    showTimer: false
+                });
+            } catch (err) {
+                handleError(err, { context: 'QuizController.wrongReview', fallbackKey: 'NETWORK' });
+            } finally {
+                hideLoading();
             }
-
-            const questions = QuizEngine.buildWrongReviewSet(filtered, count);
-            this._startQuizSession({
-                mode: QUIZ_MODES.REVIEW,
-                reviewSubMode: REVIEW_SUB_MODES.WRONG,
-                quizData: { title: originalData.title, questions },
-                titleSuffix: ' (Ôn câu sai)',
-                showTimer: false
-            });
         });
 
         if (this.btnPrev) {

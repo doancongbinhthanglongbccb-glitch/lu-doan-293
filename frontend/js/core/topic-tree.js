@@ -64,7 +64,10 @@ export function flattenQuestionsFromData(data) {
  * @returns {number}
  */
 export function countAllQuestionsInData(data) {
-    return flattenQuestionsFromData(data).length;
+    return getLeafTopics(data).reduce(
+        (n, t) => n + (t.questions?.length || t.questionCount || 0),
+        0
+    );
 }
 
 /**
@@ -165,9 +168,12 @@ export function findTopicTitleConflict(data, title, options = {}) {
  */
 export function topicQuestionCount(topic) {
     if (isTopicParent(topic)) {
-        return topic.children.reduce((n, c) => n + (c.questions?.length || 0), 0);
+        return topic.children.reduce(
+            (n, c) => n + (c.questions?.length || c.questionCount || 0),
+            0
+        );
     }
-    return topic.questions?.length || 0;
+    return topic.questions?.length || topic.questionCount || 0;
 }
 
 /**
@@ -206,7 +212,7 @@ export function listSelectableLeaves(data) {
                     label: `${topic.title} › ${child.title}`
                 });
             });
-        } else if ((topic.questions?.length || 0) > 0) {
+        } else if ((topic.questions?.length || topic.questionCount || 0) > 0) {
             items.push({ ref: { p, c: null }, topic, label: topic.title });
         }
     });

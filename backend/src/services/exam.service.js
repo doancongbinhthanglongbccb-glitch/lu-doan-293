@@ -304,6 +304,30 @@ export function listBranchesForUser(sessionId, userId) {
 }
 
 /**
+ * Bỏ isCorrect khỏi đáp án; giữ isMul để UI câu nhiều đáp án.
+ * @param {object[]} questions
+ * @returns {object[]}
+ */
+export function stripCorrectFlags(questions) {
+    return (questions || []).map(q => {
+        const answers = Array.isArray(q.answers) ? q.answers : [];
+        const isMul =
+            q.isMul === true ||
+            q.type === 'Multipleresponse' ||
+            answers.filter(a => a && a.isCorrect).length > 1;
+        return {
+            ...q,
+            isMul,
+            answers: answers.map(a => {
+                if (!a || typeof a !== 'object') return a;
+                const { isCorrect: _drop, ...rest } = a;
+                return rest;
+            })
+        };
+    });
+}
+
+/**
  * @param {number} sessionId
  * @param {number} userId
  * @param {{ topicId?: number }} [body]
@@ -358,7 +382,7 @@ export function startSessionForUser(sessionId, userId, body = {}) {
         throw err('Bộ đề được gán không hợp lệ.');
     }
 
-    const questions = quizModel.getQuestionsByDbIds(questionSet);
+    const questions = stripCorrectFlags(quizModel.getQuestionsByDbIds(questionSet));
     if (!questions.length) {
         throw err('Không tải được câu hỏi từ bộ đề.');
     }
@@ -440,7 +464,7 @@ export function submitSessionForUser(sessionId, userId, body) {
         completedAt: new Date().toISOString()
     });
 
-    return { ok: true, score, total };
+    return { ok: true, score, total, correct, questions };
 }
 
 /**

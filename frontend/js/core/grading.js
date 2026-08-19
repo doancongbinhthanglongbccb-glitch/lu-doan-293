@@ -65,7 +65,10 @@ export function prepareQuestion(q) {
         shuffle(q.answers);
     }
     assignAnswerLetters(q.answers);
-    q.isMul = q.answers.filter(a => a.isCorrect).length > 1;
+    const keysPresent = (q.answers || []).some(a => typeof a.isCorrect === 'boolean');
+    if (keysPresent) {
+        q.isMul = q.answers.filter(a => a.isCorrect).length > 1;
+    }
     return q;
 }
 

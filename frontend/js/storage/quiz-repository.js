@@ -103,6 +103,31 @@ export async function loadQuizData() {
 }
 
 /**
+ * Load topic tree + counts — no question payloads.
+ * @returns {Promise<object>}
+ */
+export async function loadQuizOutline() {
+    try {
+        const { data } = await apiClient.get('/quiz/outline', { silent: true });
+        const outline = unwrapPayload(data);
+        if (!outline.topics) outline.topics = [];
+        localStorageAdapter.setJSON(APP_CONFIG.STORAGE_KEYS.QUIZ_OUTLINE, outline);
+        localStorageAdapter.remove(APP_CONFIG.STORAGE_KEYS.QUIZ_DATA);
+        return outline;
+    } catch (err) {
+        if (err.status === 401 || err.status === 403) {
+            throw err;
+        }
+        const cached = localStorageAdapter.getJSON(APP_CONFIG.STORAGE_KEYS.QUIZ_OUTLINE);
+        if (cached) {
+            console.warn('[quiz-repository] outline load failed, using cache:', err.message);
+            return cached;
+        }
+        throw err;
+    }
+}
+
+/**
  * Save quiz via API and update local cache.
  * @param {object} data
  * @returns {Promise<QuizData>}

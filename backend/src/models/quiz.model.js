@@ -364,6 +364,35 @@ export function getQuestionsByDbIds(ids) {
 }
 
 /**
+ * @param {string[]} hashes
+ * @returns {object[]}
+ */
+export function getQuestionsByHashes(hashes) {
+    if (!hashes?.length) return [];
+    const unique = [...new Set(hashes.filter(h => typeof h === 'string' && h.trim()))];
+    if (!unique.length) return [];
+    const db = getDb();
+    const placeholders = unique.map(() => '?').join(',');
+    const rows = db
+        .prepare(
+            `SELECT id, topic_id, hash, type, payload FROM questions WHERE hash IN (${placeholders})`
+        )
+        .all(...unique);
+    return rows.map(r => {
+        let payload;
+        try {
+            payload = JSON.parse(r.payload);
+        } catch {
+            payload = { hash: r.hash, type: r.type };
+        }
+        payload.dbId = r.id;
+        payload.topicId = r.topic_id;
+        if (!payload.hash) payload.hash = r.hash;
+        return payload;
+    });
+}
+
+/**
  * Load full quiz payload — chủ đề 2 cấp (parent → children) hoặc leaf legacy.
  * @returns {{ title: string, topics: object[], settings: object, version: number }}
  */
@@ -412,6 +441,53 @@ export function getQuizData() {
             id: row.id,
             title: row.title,
             questions: loadQuestions(row.id)
+        };
+    });
+
+    return { title, topics, settings: getQuizSettings(), version };
+}
+
+/**
+ * Cây chủ đề + số câu — không payload câu, không đáp án.
+ * @returns {{ title: string, topics: object[], settings: object, version: number }}
+ */
+export function getQuizOutline() {
+    const db = getDb();
+    const meta = db.prepare('SELECT title, version FROM quiz_meta WHERE id = 1').get();
+    const title = meta?.title || DEFAULT_QUIZ_TITLE;
+    const version = meta?.version > 0 ? meta.version : 1;
+
+    const rows = db
+        .prepare(
+            'SELECT id, title, sort_order, parent_id FROM topics ORDER BY sort_order ASC, id ASC'
+        )
+        .all();
+    const counts = db
+        .prepare('SELECT topic_id, COUNT(*) AS n FROM questions GROUP BY topic_id')
+        .all();
+    const countByTopic = new Map(counts.map(r => [r.topic_id, r.n]));
+    const questionCount = topicId => countByTopic.get(topicId) || 0;
+
+    const childRows = rows.filter(r => r.parent_id != null);
+    const rootRows = rows.filter(r => r.parent_id == null);
+
+    const topics = rootRows.map(row => {
+        const kids = childRows.filter(c => c.parent_id === row.id);
+        if (kids.length > 0) {
+            return {
+                id: row.id,
+                title: row.title,
+                children: kids.map(c => ({
+                    id: c.id,
+                    title: c.title,
+                    questionCount: questionCount(c.id)
+                }))
+            };
+        }
+        return {
+            id: row.id,
+            title: row.title,
+            questionCount: questionCount(row.id)
         };
     });
 

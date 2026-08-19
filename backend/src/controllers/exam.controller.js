@@ -126,8 +126,8 @@ export function startSession(req, res, next) {
 export function submitSession(req, res, next) {
     try {
         const sessionId = parseInt(req.params.id, 10);
-        examService.submitSessionForUser(sessionId, req.user.id, req.body);
-        sendSuccess(res, null, 'Đã nộp bài kiểm tra.');
+        const result = examService.submitSessionForUser(sessionId, req.user.id, req.body);
+        sendSuccess(res, result, 'Đã nộp bài kiểm tra.');
     } catch (err) {
         next(err);
     }

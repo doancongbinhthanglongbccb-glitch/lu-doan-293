@@ -19,11 +19,13 @@ Chi tiết đầy đủ: [backend/README.md](../backend/README.md)
 
 | Method | Path | Auth |
 |--------|------|------|
-| GET | `/` | User — payload có `version` (optimistic lock) |
+| GET | `/outline` | User — cây chủ đề + `questionCount` + settings, **không** câu/đáp án |
+| GET | `/` | Admin — payload đầy đủ, có `version` (optimistic lock) |
 | PUT | `/` | Admin — gửi kèm `version`; lệch → `409` |
 | PATCH | `/settings` | Admin — cài đặt ôn tập + buffer Kiểm tra |
 | GET | `/wrong-history` | User |
 | POST | `/wrong-history` | User |
+| POST | `/wrong-review` | User — ôn câu sai của chính mình (`topicIds`, `minWrongCount`, `count`) |
 | GET | `/practice-mixed/sets` | User — danh sách bộ + tiến độ |
 | GET | `/practice-mixed/sets/:id` | User — nội dung bộ |
 | POST | `/practice-mixed/sets/:id/progress` | User — ghi tiến độ |
@@ -44,8 +46,8 @@ Tất cả route yêu cầu Bearer token (`requireAuth`).
 | GET | `/sessions/:id/branches` | User | Nhánh khả dụng (lĩnh vực / trộn) |
 | GET | `/sessions/:id/sets` | User | Danh sách bộ (`?topicId=` nếu theo lĩnh vực) |
 | GET | `/sessions/:id/readiness` | User | Có thể bắt đầu không (`?topicId=`) |
-| POST | `/sessions/:id/start` | User | Bắt đầu bộ đã chọn (`sessionSetId`, `topicId?`) |
-| POST | `/sessions/:id/submit` | User | Nộp bài Kiểm tra |
+| POST | `/sessions/:id/start` | User | Bắt đầu bộ đã chọn (`sessionSetId`, `topicId?`). Payload câu **không** có `isCorrect`. |
+| POST | `/sessions/:id/submit` | User | Nộp bài. Response có điểm server-side; `questions` (kèm đáp án) chỉ sau khi nộp. |
 | GET | `/sessions` | Admin | Danh sách đợt |
 | POST | `/sessions` | Admin | Tạo đợt |
 | PATCH | `/sessions/:id` | Admin | Sửa đợt (draft) |
@@ -53,7 +55,7 @@ Tất cả route yêu cầu Bearer token (`requireAuth`).
 | POST | `/sessions/:id/close` | Admin | Đóng đợt |
 | POST | `/sessions/:id/regenerate` | Admin | Tái tạo bộ đề |
 | GET | `/history/all` | Admin | Lịch sử Kiểm tra (`?battalionId=&branch=&search=&limit=`) |
-| GET | `/sessions/:id/progress-matrix` | Admin | Ma trận tiến độ đợt |
+| GET | `/sessions/:id/progress-matrix` | Admin | Tiến độ đợt |
 
 ## Battalions — `/api/battalions`
 
