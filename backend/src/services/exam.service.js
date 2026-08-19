@@ -1,5 +1,6 @@
 import * as examModel from '../models/exam-session.model.js';
 import * as quizModel from '../models/quiz.model.js';
+import { stripCorrectFlags, gradeQuestion } from '../utils/question-payload.js';
 import * as userModel from '../models/user.model.js';
 import * as battalionModel from '../models/battalion.model.js';
 import { generateExamSets } from './exam-set-generator.service.js';
@@ -8,6 +9,8 @@ import {
     EXAM_SESSION_TYPES,
     USER_STATUS
 } from '../config/constants.js';
+
+export { stripCorrectFlags };
 
 function err(message, status = 400) {
     const e = new Error(message);
@@ -51,35 +54,6 @@ export function evaluateStartReadiness(session) {
     }
 
     return { canStart: true, minutesRemaining };
-}
-
-/**
- * @param {object} q
- * @param {{ selected?: number[], textValue?: string }|null} answerState
- */
-function gradeQuestion(q, answerState) {
-    if (!answerState) return { answered: false, isCorrect: false };
-    const type = q.type || '';
-    if (type === 'Fillintheblank' || type === 'essayquestion') {
-        const text = String(answerState.textValue || '').trim();
-        if (!text) return { answered: false, isCorrect: false };
-        const cor = (q.answers || []).find(a => a.isCorrect);
-        if (!cor) return { answered: true, isCorrect: false };
-        const strip = html =>
-            String(html || '')
-                .replace(/<[^>]+>/g, ' ')
-                .replace(/\s+/g, ' ')
-                .trim()
-                .toLowerCase();
-        return { answered: true, isCorrect: strip(cor.html) === strip(text) };
-    }
-    const selected = Array.isArray(answerState.selected) ? [...answerState.selected].sort() : [];
-    if (!selected.length) return { answered: false, isCorrect: false };
-    const corIdx = (q.answers || [])
-        .map((a, j) => (a.isCorrect ? j : -1))
-        .filter(j => j !== -1)
-        .sort((a, b) => a - b);
-    return { answered: true, isCorrect: JSON.stringify(selected) === JSON.stringify(corIdx) };
 }
 
 function parseQuestionIds(raw) {
@@ -301,30 +275,6 @@ export function listBranchesForUser(sessionId, userId) {
         mixedSetCount: mixed.length,
         topics
     };
-}
-
-/**
- * Bỏ isCorrect khỏi đáp án; giữ isMul để UI câu nhiều đáp án.
- * @param {object[]} questions
- * @returns {object[]}
- */
-export function stripCorrectFlags(questions) {
-    return (questions || []).map(q => {
-        const answers = Array.isArray(q.answers) ? q.answers : [];
-        const isMul =
-            q.isMul === true ||
-            q.type === 'Multipleresponse' ||
-            answers.filter(a => a && a.isCorrect).length > 1;
-        return {
-            ...q,
-            isMul,
-            answers: answers.map(a => {
-                if (!a || typeof a !== 'object') return a;
-                const { isCorrect: _drop, ...rest } = a;
-                return rest;
-            })
-        };
-    });
 }
 
 /**

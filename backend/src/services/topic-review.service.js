@@ -1,5 +1,6 @@
 import * as quizModel from '../models/quiz.model.js';
 import * as progressModel from '../models/practice-topic-progress.model.js';
+import { stripCorrectFlags } from '../utils/question-payload.js';
 
 function err(message, status = 400) {
     const e = new Error(message);
@@ -72,7 +73,7 @@ export function getSetQuestions(topicId, setIndex) {
     const sets = getTopicSets(topicId);
     const questionIds = sets[index - 1];
     if (!questionIds?.length) throw err('Không tìm thấy bộ đề.', 404);
-    const questions = quizModel.getQuestionsByDbIds(questionIds);
+    const questions = stripCorrectFlags(quizModel.getQuestionsByDbIds(questionIds));
     if (!questions.length) throw err('Bộ ôn tập không còn câu hỏi hợp lệ.');
     return {
         topicId: topic.id,

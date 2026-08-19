@@ -68,12 +68,15 @@ export class GridRenderer {
             el.className = 'grid-item';
             const ans = this.answers[i];
             const answered = hasAnswer(ans);
-            if (ans?.doubtful) el.classList.add('doubt');
+            const graded = ans?.isLocked && typeof ans.isCorrect === 'boolean';
+            if (graded) el.classList.add(ans.isCorrect ? 'correct' : 'wrong');
+            else if (ans?.doubtful) el.classList.add('doubt');
             else if (answered) el.classList.add('done');
             if (i === this.currentIndex) el.classList.add('current');
             el.setAttribute('aria-current', i === this.currentIndex ? 'true' : 'false');
             let stateLabel = 'chưa làm';
-            if (ans?.doubtful) stateLabel = 'nghi ngờ';
+            if (graded) stateLabel = ans.isCorrect ? 'đúng' : 'sai';
+            else if (ans?.doubtful) stateLabel = 'nghi ngờ';
             else if (answered) stateLabel = 'đã trả lời';
             if (i === this.currentIndex) stateLabel = `đang làm, ${stateLabel}`;
             el.setAttribute('aria-label', `Câu ${i + 1}, ${stateLabel}`);

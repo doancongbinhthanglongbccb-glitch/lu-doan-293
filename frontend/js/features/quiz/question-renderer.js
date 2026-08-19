@@ -82,6 +82,10 @@ export class QuestionRenderer {
                     '<div class="answer-correct-box"><b>Đáp án đúng:</b><div class="formatted-answer">' +
                     formatAnswerForDisplay(corAns.html) +
                     '</div></div>';
+            } else {
+                html += ansState.isCorrect
+                    ? '<div class="answer-correct-box"><b>Đúng</b></div>'
+                    : '<div class="answer-correct-box"><b>Sai</b></div>';
             }
         }
         return html;
@@ -102,8 +106,12 @@ export class QuestionRenderer {
             const isSel = ansState?.selected.includes(idx);
             let c = 'opt-item' + (isSel ? ' selected' : '');
             if (mode === QUIZ_MODES.REVIEW && ansState?.isLocked) {
-                if (ans.isCorrect) c += ' correct selected';
-                else if (isSel) c += ' wrong selected';
+                if (typeof ans.isCorrect === 'boolean') {
+                    if (ans.isCorrect) c += ' correct selected';
+                    else if (isSel) c += ' wrong selected';
+                } else if (isSel) {
+                    c += ansState.isCorrect ? ' correct selected' : ' wrong selected';
+                }
             }
             html +=
                 `<div class="${c}" data-idx="${idx}" role="button" tabindex="0" aria-pressed="${isSel}">` +

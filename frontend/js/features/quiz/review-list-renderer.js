@@ -89,7 +89,7 @@ export class ReviewListRenderer {
         if (isTextInputType(q.type)) {
             const userVal = st?.textValue || 'Trống';
             const corAns = q.answers.find(a => a.isCorrect);
-            corAnsText = corAns ? htmlToText(corAns.html) : '';
+            corAnsText = corAns ? htmlToText(corAns.html) : st?.isCorrect ? 'Đúng' : '—';
             userAnsText = userVal;
             optHtml =
                 '<div class="formatted-answer formatted-user-answer">' +
@@ -99,11 +99,14 @@ export class ReviewListRenderer {
                 '</div>';
         } else {
             q.answers.forEach((ans, j) => {
-                const isCor = ans.isCorrect;
                 const isSel = st?.selected.includes(j);
                 let c = 'opt-item';
-                if (isCor) c += ' correct selected';
-                else if (isSel) c += ' wrong selected';
+                if (typeof ans.isCorrect === 'boolean') {
+                    if (ans.isCorrect) c += ' correct selected';
+                    else if (isSel) c += ' wrong selected';
+                } else if (isSel) {
+                    c += st?.isCorrect ? ' correct selected' : ' wrong selected';
+                }
                 const radioStyle = q.type === 'Multipleresponse' ? 'border-radius:4px;' : 'border-radius:50%;';
                 const radioInnerStyle = q.type === 'Multipleresponse' ? 'border-radius:2px;' : 'border-radius:50%;';
                 optHtml +=
@@ -112,10 +115,8 @@ export class ReviewListRenderer {
                     `<div class="opt-letter">${ans.letter}.</div><div class="q-content">${sanitizeRichHtml(ans.html)}</div></div>`;
             });
             userAnsText = st?.selected.length > 0 ? st.selected.map(idx => q.answers[idx].letter).join(', ') : 'Trống';
-            corAnsText = q.answers
-                .filter(a => a.isCorrect)
-                .map(a => a.letter)
-                .join(', ');
+            const keyLetters = q.answers.filter(a => a.isCorrect).map(a => a.letter);
+            corAnsText = keyLetters.length ? keyLetters.join(', ') : st?.isCorrect ? 'Đúng' : '—';
         }
 
         return (

@@ -1,6 +1,7 @@
 import * as quizModel from '../models/quiz.model.js';
 import * as practiceModel from '../models/practice-mixed.model.js';
 import { generateExamSets } from './exam-set-generator.service.js';
+import { stripCorrectFlags } from '../utils/question-payload.js';
 
 function err(message, status = 400) {
     const e = new Error(message);
@@ -70,7 +71,7 @@ export function getSetQuestions(setId) {
     const row = practiceModel.findSetById(setId);
     if (!row) throw err('Không tìm thấy bộ ôn tập.', 404);
     const ids = practiceModel.questionIdsOf(row);
-    const questions = quizModel.getQuestionsByDbIds(ids);
+    const questions = stripCorrectFlags(quizModel.getQuestionsByDbIds(ids));
     if (!questions.length) throw err('Bộ ôn tập không còn câu hỏi hợp lệ.');
     return {
         id: row.id,

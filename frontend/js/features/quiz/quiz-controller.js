@@ -9,6 +9,7 @@ import {
     hasAnswer,
     emptyAnswerState,
     isMultiSelectType,
+    isTextInputType,
     countAllQuestions,
     prepareQuestion
 } from '../../core/grading.js';
@@ -32,6 +33,7 @@ import * as checkExamApi from '../../services/exam/check-exam-api.js';
 import * as practiceMixedApi from '../../services/quiz/practice-mixed-api.js';
 import * as topicReviewApi from '../../services/quiz/topic-review-api.js';
 import * as wrongReviewApi from '../../services/quiz/wrong-review-api.js';
+import * as gradeQuestionApi from '../../services/quiz/grade-question-api.js';
 
 /**
  * Main quiz application controller — orchestrates UI and business logic.
@@ -64,6 +66,7 @@ export class QuizController {
         this.practiceSetSource = 'mixed';
         this.currentTopicReview = null;
         this.topicReviewSetIndex = null;
+        this._checkSubmitStarted = false;
     }
 
     /** Initialize quiz application */
@@ -94,6 +97,7 @@ export class QuizController {
             this._setupHomeScreen(originalData);
             await this._refreshCheckAvailability();
             this._bindQuizDataRefresh();
+            this._bindCheckLeaveGuard();
             this.showScreen('screenHome');
         } catch (err) {
             handleError(err, { context: 'QuizController.init', fallbackKey: 'QUIZ_LOAD' });
@@ -234,7 +238,13 @@ export class QuizController {
 
     _buildGrid() {
         const { totalCount, answers, currentIndex } = store.getState();
-        this.gridRenderer.build(totalCount, idx => {
+        this.gridRenderer.build(totalCount, async idx => {
+            try {
+                await this._maybeGradeCurrentReview();
+            } catch (err) {
+                handleError(err, { context: 'QuizController.gridNavigate', fallbackKey: 'NETWORK' });
+                return;
+            }
             store.setState({ currentIndex: idx });
             this.renderQuestion();
         });
@@ -330,44 +340,146 @@ export class QuizController {
         store.setState({ answers });
         this.renderQuestion();
         this._recordPracticeMixedProgress(currentIndex);
+
+        if (
+            !isDoubt &&
+            mode === QUIZ_MODES.REVIEW &&
+            this._needsServerGrade(quizData.questions) &&
+            !isMultiSelectType(q) &&
+            !isTextInputType(q.type)
+        ) {
+            this._applyServerGrade(currentIndex)
+                .then(() => this.renderQuestion())
+                .catch(() => {});
+        }
+    }
+
+    /**
+     * Ôn tập (practice-mixed / topic-review) đã strip isCorrect — phải chấm ở server.
+     * @param {object[]} questions
+     */
+    _needsServerGrade(questions) {
+        return (questions || []).some(
+            q => q?.dbId && !(q.answers || []).some(a => typeof a.isCorrect === 'boolean')
+        );
+    }
+
+    /**
+     * @param {number} index
+     */
+    async _applyServerGrade(index) {
+        const state = store.getState();
+        const q = state.quizData?.questions?.[index];
+        const answers = { ...state.answers };
+        const prev = answers[index] || emptyAnswerState();
+        const st = {
+            ...prev,
+            selected: Array.isArray(prev.selected) ? [...prev.selected] : []
+        };
+        if (!q?.dbId || st.isLocked) return;
+        if (!hasAnswer(st)) {
+            st.isLocked = true;
+            st.isCorrect = false;
+            answers[index] = st;
+            store.setState({ answers });
+            return;
+        }
+        const result = await gradeQuestionApi.grade({
+            questionId: q.dbId,
+            selected: st.selected,
+            textValue: st.textValue || ''
+        });
+        st.isCorrect = !!result.correct;
+        st.isLocked = true;
+        answers[index] = st;
+        store.setState({ answers });
+        if (this.wrongHistoryService) {
+            this.wrongHistoryService.recordAnswer(
+                q,
+                st.isCorrect && !st.doubtful,
+                state.mode,
+                state.reviewSubMode
+            );
+            const historyState = this.wrongHistoryService.getState();
+            store.setState({
+                wrongHistory: historyState.wrongHistory,
+                correctHistory: historyState.correctHistory
+            });
+        }
+    }
+
+    async _maybeGradeCurrentReview() {
+        const state = store.getState();
+        if (state.mode !== QUIZ_MODES.REVIEW) return;
+        if (!this._needsServerGrade(state.quizData.questions)) return;
+        const i = state.currentIndex;
+        const st = state.answers[i];
+        if (st?.isLocked || !hasAnswer(st)) return;
+        await this._applyServerGrade(i);
+        this.renderQuestion();
     }
 
     /** Submit exam/review and show results */
     submitExam() {
         this._clearClosesAtWatcher();
         quizTimer.destroy();
+        if (store.getState().mode === QUIZ_MODES.CHECK) {
+            this._checkSubmitStarted = true;
+        }
 
-        const finish = () => {
+        const finish = async () => {
             const state = store.getState();
             const answers = { ...state.answers };
             let scoreCount = 0;
+            const needsServer =
+                state.mode === QUIZ_MODES.REVIEW && this._needsServerGrade(state.quizData.questions);
 
-            state.quizData.questions.forEach((q, i) => {
-                let st = answers[i];
-                const grade = gradeAnswer(q, st);
-
-                if (grade.answered) {
-                    if (!st) st = answers[i] = emptyAnswerState();
-                    st.isCorrect = grade.isCorrect;
-                    st.isLocked = true;
-                    if (grade.isCorrect) scoreCount++;
+            if (needsServer) {
+                for (let i = 0; i < state.quizData.questions.length; i++) {
+                    if (!answers[i]?.isLocked) {
+                        await this._applyServerGrade(i);
+                    }
+                }
+                const graded = store.getState().answers;
+                Object.assign(answers, graded);
+                state.quizData.questions.forEach((q, i) => {
+                    const st = answers[i] || emptyAnswerState();
+                    if (st.isCorrect) scoreCount++;
                     this.wrongHistoryService.recordAnswer(
                         q,
-                        grade.isCorrect && !st.doubtful,
+                        !!st.isCorrect && !st.doubtful && hasAnswer(st),
                         state.mode,
                         state.reviewSubMode
                     );
-                } else {
-                    answers[i] = {
-                        selected: [],
-                        textValue: '',
-                        doubtful: false,
-                        isLocked: true,
-                        isCorrect: false
-                    };
-                    this.wrongHistoryService.recordAnswer(q, false, state.mode, state.reviewSubMode);
-                }
-            });
+                });
+            } else {
+                state.quizData.questions.forEach((q, i) => {
+                    let st = answers[i];
+                    const grade = gradeAnswer(q, st);
+
+                    if (grade.answered) {
+                        if (!st) st = answers[i] = emptyAnswerState();
+                        st.isCorrect = grade.isCorrect;
+                        st.isLocked = true;
+                        if (grade.isCorrect) scoreCount++;
+                        this.wrongHistoryService.recordAnswer(
+                            q,
+                            grade.isCorrect && !st.doubtful,
+                            state.mode,
+                            state.reviewSubMode
+                        );
+                    } else {
+                        answers[i] = {
+                            selected: [],
+                            textValue: '',
+                            doubtful: false,
+                            isLocked: true,
+                            isCorrect: false
+                        };
+                        this.wrongHistoryService.recordAnswer(q, false, state.mode, state.reviewSubMode);
+                    }
+                });
+            }
 
             const historyState = this.wrongHistoryService.getState();
             store.setState({
@@ -407,7 +519,9 @@ export class QuizController {
                             quizData: { ...store.getState().quizData, questions }
                         });
                     }
-                    finish();
+                    finish().catch(err => {
+                        handleError(err, { context: 'QuizController.submitExam', fallbackKey: 'NETWORK' });
+                    });
                 })
                 .catch(err => {
                     handleError(err, { context: 'QuizController.submitExam', fallbackKey: 'NETWORK' });
@@ -415,7 +529,9 @@ export class QuizController {
             return;
         }
 
-        finish();
+        finish().catch(err => {
+            handleError(err, { context: 'QuizController.submitExam', fallbackKey: 'NETWORK' });
+        });
     }
 
     /** Manual submit — require every question answered (timer auto-submit may leave blanks). */
@@ -462,35 +578,99 @@ export class QuizController {
     }
 
     async _saveCheckResult() {
-        const state = store.getState();
-        const sessionId = state.checkSessionId;
+        const sessionId = store.getState().checkSessionId;
         if (!sessionId) return;
 
-        const timerState = quizTimer.getState();
-        const { quizData, timeTotalStr, timeStartStr, timeEndStr } = state;
-
         try {
-            return await checkExamApi.submitSession(sessionId, {
-                topicId: state.checkTopicId,
-                durationSec: timerState.elapsed,
-                answers: (quizData.questions || []).map((q, i) => ({
-                    questionId: q.dbId,
-                    selected: state.answers[i]?.selected || [],
-                    textValue: state.answers[i]?.textValue || ''
-                })),
-                detail: {
-                    title: quizData.title,
-                    type: state.checkSessionType,
-                    timeStart: timeStartStr,
-                    timeEnd: timeEndStr,
-                    timeLimit: timeTotalStr
-                }
-            });
+            return await checkExamApi.submitSession(sessionId, this._buildCheckSubmitPayload());
         } catch (err) {
+            this._checkSubmitStarted = false;
             console.warn('[QuizController] check submit failed:', err.message);
             Toast.error(err.message || 'Lưu kết quả kiểm tra thất bại.');
             throw err;
         }
+    }
+
+    _buildCheckSubmitPayload() {
+        const state = store.getState();
+        const timerState = quizTimer.getState();
+        const { quizData, timeTotalStr, timeStartStr, timeEndStr } = state;
+        return {
+            topicId: state.checkTopicId,
+            durationSec: timerState.elapsed,
+            answers: (quizData.questions || []).map((q, i) => ({
+                questionId: q.dbId,
+                selected: state.answers[i]?.selected || [],
+                textValue: state.answers[i]?.textValue || ''
+            })),
+            detail: {
+                title: quizData.title,
+                type: state.checkSessionType,
+                timeStart: timeStartStr,
+                timeEnd: timeEndStr,
+                timeLimit: timeTotalStr
+            }
+        };
+    }
+
+    _isCheckQuizActive() {
+        return store.getState().mode === QUIZ_MODES.CHECK && ScreenManager.getActiveId() === 'screenQuiz';
+    }
+
+    _bindCheckLeaveGuard() {
+        window.addEventListener('beforeunload', e => {
+            if (!this._isCheckQuizActive() || this._checkSubmitStarted) return;
+            e.preventDefault();
+            e.returnValue = '';
+        });
+    }
+
+    _openExitConfirm() {
+        const state = store.getState();
+        const activeId = ScreenManager.getActiveId();
+        if (state.mode === QUIZ_MODES.CHECK && activeId === 'screenQuiz') {
+            Toast.warning(
+                'Hãy làm hết các câu rồi nộp bài. Chỉ khi hết giờ hệ thống mới thu bài tự động.'
+            );
+            return;
+        }
+        const msgEl = $('exitConfirmMessage');
+        if (msgEl) {
+            if (
+                state.mode === QUIZ_MODES.REVIEW &&
+                (state.reviewSubMode === REVIEW_SUB_MODES.GENERAL ||
+                    state.reviewSubMode === REVIEW_SUB_MODES.TOPIC)
+            ) {
+                msgEl.textContent = 'Tiến độ ôn tập đã được lưu. Bạn muốn thoát?';
+            } else {
+                msgEl.textContent = 'Bạn muốn thoát? Phiên làm bài hiện tại sẽ không được lưu.';
+            }
+        }
+        ModalManager.open('modalConfirmExit');
+    }
+
+    _onConfirmExit() {
+        const state = store.getState();
+        const activeId = ScreenManager.getActiveId();
+        quizTimer.destroy();
+        this._clearClosesAtWatcher();
+        if (
+            state.mode === QUIZ_MODES.REVIEW &&
+            state.reviewSubMode === REVIEW_SUB_MODES.TOPIC &&
+            (activeId === 'screenQuiz' || activeId === 'screenResult')
+        ) {
+            this.showScreen('screenTopicReview');
+            return;
+        }
+        if (
+            state.mode === QUIZ_MODES.REVIEW &&
+            state.reviewSubMode === REVIEW_SUB_MODES.GENERAL &&
+            (activeId === 'screenQuiz' || activeId === 'screenResult')
+        ) {
+            this._openPracticeMixedScreen();
+            return;
+        }
+        this.showScreen('screenHome');
     }
 
     async _refreshCheckAvailability() {
@@ -727,6 +907,7 @@ export class QuizController {
                 checkSessionType: payload.session?.type,
                 checkTopicId: payload.topicId ?? topicId ?? null
             });
+            this._checkSubmitStarted = false;
 
             this._startQuizSession({
                 mode: QUIZ_MODES.CHECK,
@@ -939,6 +1120,7 @@ export class QuizController {
         try {
             const payload = await topicReviewApi.loadSet(topicId, setIndex);
             const questions = (payload.questions || []).map(q => {
+                q.noShuffle = true;
                 prepareQuestion(q);
                 return q;
             });
@@ -1006,6 +1188,7 @@ export class QuizController {
         try {
             const payload = await practiceMixedApi.loadSet(setId);
             const questions = (payload.questions || []).map(q => {
+                q.noShuffle = true;
                 prepareQuestion(q);
                 return q;
             });
@@ -1080,8 +1263,11 @@ export class QuizController {
             timerTitle.textContent = showTimer ? 'Thời gian còn lại' : 'Thời gian làm bài';
         }
         setVisible(this.timerBox, true, 'block');
-        setVisible(this.btnSubmitExam, true);
-        if (this.btnSubmitExam) {
+        const hideSubmit =
+            mode === QUIZ_MODES.REVIEW &&
+            (reviewSubMode === REVIEW_SUB_MODES.GENERAL || reviewSubMode === REVIEW_SUB_MODES.TOPIC);
+        setVisible(this.btnSubmitExam, !hideSubmit);
+        if (this.btnSubmitExam && !hideSubmit) {
             const isExam = mode === QUIZ_MODES.EXAM || mode === QUIZ_MODES.CHECK;
             this.btnSubmitExam.textContent = isExam ? 'Nộp bài' : 'Nộp đáp án';
             this.btnSubmitExam.classList.toggle('btn-submit-review', !isExam);
@@ -1114,6 +1300,9 @@ export class QuizController {
 
         this.resetGame();
         this.showScreen('screenQuiz');
+        if (mode === QUIZ_MODES.CHECK && this.btnExitTop) {
+            this.btnExitTop.style.display = 'none';
+        }
     }
 
     _setupWrongTopicSelection() {
@@ -1204,21 +1393,10 @@ export class QuizController {
         });
         this._bindClick('btnBackHomeFromTopic', () => this.showScreen('screenHome'));
 
-        this.btnExitTop?.addEventListener('click', () => ModalManager.open('modalConfirmExit'));
-        ModalManager.bindConfirm('modalConfirmExit', 'btnConfirmExit', 'btnCancelExit', () => {
-            quizTimer.destroy();
-            const state = store.getState();
-            const activeId = ScreenManager.getActiveId();
-            if (
-                state.mode === QUIZ_MODES.REVIEW &&
-                state.reviewSubMode === REVIEW_SUB_MODES.TOPIC &&
-                (activeId === 'screenQuiz' || activeId === 'screenResult')
-            ) {
-                this.showScreen('screenTopicReview');
-            } else {
-                this.showScreen('screenHome');
-            }
-        });
+        this.btnExitTop?.addEventListener('click', () => this._openExitConfirm());
+        ModalManager.bindConfirm('modalConfirmExit', 'btnConfirmExit', 'btnCancelExit', () =>
+            this._onConfirmExit()
+        );
 
         this._bindClick('btnStartExam', () => {
             Toast.info('Thi thử đã được gỡ. Dùng Kiểm tra khi admin mở đợt.');
@@ -1268,20 +1446,32 @@ export class QuizController {
         });
 
         if (this.btnPrev) {
-            this.btnPrev.onclick = () => {
+            this.btnPrev.onclick = async () => {
             const { currentIndex } = store.getState();
             if (currentIndex > 0) {
-                store.setState({ currentIndex: currentIndex - 1 });
+                try {
+                    await this._maybeGradeCurrentReview();
+                } catch (err) {
+                    handleError(err, { context: 'QuizController.btnPrev', fallbackKey: 'NETWORK' });
+                    return;
+                }
+                store.setState({ currentIndex: store.getState().currentIndex - 1 });
                 this.renderQuestion();
             }
             };
         }
 
         if (this.btnNext) {
-            this.btnNext.onclick = () => {
+            this.btnNext.onclick = async () => {
             const { currentIndex, totalCount } = store.getState();
             if (currentIndex < totalCount - 1) {
-                store.setState({ currentIndex: currentIndex + 1 });
+                try {
+                    await this._maybeGradeCurrentReview();
+                } catch (err) {
+                    handleError(err, { context: 'QuizController.btnNext', fallbackKey: 'NETWORK' });
+                    return;
+                }
+                store.setState({ currentIndex: store.getState().currentIndex + 1 });
                 this.renderQuestion();
             }
             };

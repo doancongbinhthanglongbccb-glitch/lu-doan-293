@@ -26,10 +26,14 @@ Chi tiết đầy đủ: [backend/README.md](../backend/README.md)
 | GET | `/wrong-history` | User |
 | POST | `/wrong-history` | User |
 | POST | `/wrong-review` | User — ôn câu sai của chính mình (`topicIds`, `minWrongCount`, `count`) |
+| POST | `/grade-question` | User — chấm 1 câu ôn tập (`questionId`, `selected?`, `textValue?`). Trả `{ answered, correct }`, **không** `isCorrect`. |
 | GET | `/practice-mixed/sets` | User — danh sách bộ + tiến độ |
-| GET | `/practice-mixed/sets/:id` | User — nội dung bộ |
+| GET | `/practice-mixed/sets/:id` | User — nội dung bộ (**không** `isCorrect`) |
 | POST | `/practice-mixed/sets/:id/progress` | User — ghi tiến độ |
 | POST | `/practice-mixed/regenerate` | Admin — tái tạo N bộ |
+| GET | `/topic-review/:topicId/sets` | User — danh sách bộ ôn từng phần |
+| GET | `/topic-review/:topicId/sets/:setIndex` | User — nội dung bộ (**không** `isCorrect`) |
+| POST | `/topic-review/:topicId/sets/:setIndex/progress` | User — ghi tiến độ |
 | GET | `/history` | User — lịch sử thi thử cũ (API giữ, UI không dùng) |
 | POST | `/history` | User — lưu thi thử cũ (API giữ, UI không dùng) |
 | GET | `/history/all` | Admin — lịch sử thi thử cũ (`?search=&battalionId=&limit=`) |

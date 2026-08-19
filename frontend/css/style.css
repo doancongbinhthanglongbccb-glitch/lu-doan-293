@@ -594,7 +594,11 @@
         .grid-item:hover { border-color: var(--military-blue); background: #f8fafc; }
         .grid-item:focus-visible { outline: none; box-shadow: var(--shadow-focus); }
         .grid-item.done { background: var(--green-accent); color: white; border-color: var(--green-accent); }
+        .grid-item.correct { background: var(--green-accent); color: white; border-color: var(--green-accent); }
+        .grid-item.wrong { background: var(--red-accent); color: white; border-color: var(--red-accent); }
         .grid-item.doubt { background: var(--warning-accent); color: white; border-color: var(--warning-accent); }
+        .grid-item.correct:hover { background: var(--green-accent); border-color: var(--green-accent); color: white; }
+        .grid-item.wrong:hover { background: var(--red-accent); border-color: var(--red-accent); color: white; }
         /* Câu đang làm — màu cam nổi bật */
         .grid-item.current {
             background: var(--primary);
@@ -605,6 +609,16 @@
         }
         .grid-item.current.done {
             background: var(--green-accent);
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary);
+        }
+        .grid-item.current.correct {
+            background: var(--green-accent);
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary);
+        }
+        .grid-item.current.wrong {
+            background: var(--red-accent);
             border-color: var(--primary);
             box-shadow: 0 0 0 3px var(--primary);
         }

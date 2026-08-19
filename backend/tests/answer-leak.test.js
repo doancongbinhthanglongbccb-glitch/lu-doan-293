@@ -82,6 +82,7 @@ describe('P0 answer leak — GET /quiz, outline, exam start, wrong-review', () =
     let topicId;
     let sessionId;
     let setId;
+    let mixedSetId;
     const stamp = new Date().toISOString();
 
     before(async () => {
@@ -140,6 +141,10 @@ describe('P0 answer leak — GET /quiz, outline, exam start, wrong-review', () =
              VALUES (?, ?, 1, ?)`
         ).run(sessionId, topicId, JSON.stringify(qIds));
         setId = db.prepare('SELECT id FROM exam_session_sets').get().id;
+        db.prepare('INSERT INTO practice_mixed_sets (set_index, question_ids) VALUES (1, ?)').run(
+            JSON.stringify(qIds)
+        );
+        mixedSetId = db.prepare('SELECT id FROM practice_mixed_sets').get().id;
 
         adminToken = signAccessToken({ id: 1, militaryId: '00000001', role: 'admin' });
         userAToken = signAccessToken({ id: 2, militaryId: '10000001', role: 'user' });
@@ -250,5 +255,62 @@ describe('P0 answer leak — GET /quiz, outline, exam start, wrong-review', () =
         assert.equal(open.status, 200);
         assert.ok((wrong.json.data.questions || []).length >= 1);
         assert.ok((topicSets.json.data.sets || []).length >= 1);
+    });
+
+    it('7. GET /quiz/practice-mixed/sets/:id token user → không có isCorrect', async () => {
+        const got = await api(base, userAToken, 'GET', `/api/quiz/practice-mixed/sets/${mixedSetId}`);
+        const raw = JSON.stringify(got.json);
+        console.log(
+            `[answer-leak] ${stamp} T7 GET mixed set status=${got.status} hasIsCorrect=${raw.includes('"isCorrect"')} qCount=${got.json.data?.questions?.length}`
+        );
+        assert.equal(got.status, 200, raw);
+        assert.equal(raw.includes('"isCorrect"'), false);
+        assert.ok(got.json.data.questions?.length >= 1);
+        const firstAns = got.json.data.questions[0].answers[0];
+        assert.equal(Object.prototype.hasOwnProperty.call(firstAns, 'isCorrect'), false);
+        assert.equal(typeof got.json.data.questions[0].isMul, 'boolean');
+    });
+
+    it('8. GET /quiz/topic-review/:topicId/sets/:setIndex token user → không có isCorrect', async () => {
+        const got = await api(base, userAToken, 'GET', `/api/quiz/topic-review/${topicId}/sets/1`);
+        const raw = JSON.stringify(got.json);
+        console.log(
+            `[answer-leak] ${stamp} T8 GET topic-review set status=${got.status} hasIsCorrect=${raw.includes('"isCorrect"')} qCount=${got.json.data?.questions?.length}`
+        );
+        assert.equal(got.status, 200, raw);
+        assert.equal(raw.includes('"isCorrect"'), false);
+        assert.ok(got.json.data.questions?.length >= 1);
+        const firstAns = got.json.data.questions[0].answers[0];
+        assert.equal(Object.prototype.hasOwnProperty.call(firstAns, 'isCorrect'), false);
+    });
+
+    it('9. POST /quiz/grade-question đúng/sai, không trả isCorrect', async () => {
+        const setGot = await api(base, userAToken, 'GET', `/api/quiz/practice-mixed/sets/${mixedSetId}`);
+        const q = setGot.json.data.questions.find(item => item.hash === 'hash-a') || setGot.json.data.questions[0];
+        const questionId = q.dbId;
+
+        const right = await api(base, userAToken, 'POST', '/api/quiz/grade-question', {
+            questionId,
+            selected: [0]
+        });
+        const rightRaw = JSON.stringify(right.json);
+        console.log(`[answer-leak] ${stamp} T9 grade correct status=${right.status} body=${rightRaw}`);
+        assert.equal(right.status, 200, rightRaw);
+        assert.equal(right.json.data.answered, true);
+        assert.equal(right.json.data.correct, true);
+        assert.equal(rightRaw.includes('"isCorrect"'), false);
+
+        const wrong = await api(base, userAToken, 'POST', '/api/quiz/grade-question', {
+            questionId,
+            selected: [1]
+        });
+        const wrongRaw = JSON.stringify(wrong.json);
+        console.log(`[answer-leak] ${stamp} T9 grade wrong status=${wrong.status} body=${wrongRaw}`);
+        assert.equal(wrong.status, 200, wrongRaw);
+        assert.equal(wrong.json.data.answered, true);
+        assert.equal(wrong.json.data.correct, false);
+        assert.equal(wrongRaw.includes('"isCorrect"'), false);
+        assert.equal(wrong.json.data.questions, undefined);
+        assert.equal(wrong.json.data.answers, undefined);
     });
 });

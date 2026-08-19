@@ -76,6 +76,15 @@ export function postWrongReview(req, res, next) {
     }
 }
 
+export function postGradeQuestion(req, res, next) {
+    try {
+        const result = quizService.gradePracticeQuestion(req.body || {});
+        sendSuccess(res, result);
+    } catch (err) {
+        next(err);
+    }
+}
+
 export function getQuizHistory(req, res, next) {
     try {
         const limit = parsePositiveInt(req.query.limit) ?? 50;

@@ -3,6 +3,7 @@ import * as wrongModel from '../models/wrong-answer.model.js';
 import * as historyModel from '../models/quiz-history.model.js';
 import * as examService from './exam.service.js';
 import * as practiceMixedService from './practice-mixed.service.js';
+import { gradeQuestion } from '../utils/question-payload.js';
 
 export function getQuiz() {
     return quizModel.getQuizData();
@@ -121,6 +122,31 @@ export function getWrongReview(userId, body = {}) {
 
     questions = shuffleList(questions).slice(0, count);
     return { title: meta.title, questions };
+}
+
+/**
+ * Chấm 1 câu ôn tập — chỉ trả đúng/sai cho lựa chọn đã gửi, không trả isCorrect.
+ * @param {{ questionId?: unknown, selected?: unknown, textValue?: unknown }} body
+ */
+export function gradePracticeQuestion(body = {}) {
+    const questionId = Number(body.questionId);
+    if (!Number.isInteger(questionId) || questionId < 1) {
+        const err = new Error('Câu hỏi không hợp lệ.');
+        err.status = 400;
+        throw err;
+    }
+    const questions = quizModel.getQuestionsByDbIds([questionId]);
+    if (!questions.length) {
+        const err = new Error('Không tìm thấy câu hỏi.');
+        err.status = 404;
+        throw err;
+    }
+    const selected = Array.isArray(body.selected)
+        ? body.selected.map(Number).filter(n => Number.isInteger(n) && n >= 0)
+        : [];
+    const textValue = body.textValue != null ? String(body.textValue) : '';
+    const grade = gradeQuestion(questions[0], { selected, textValue });
+    return { answered: grade.answered, correct: grade.isCorrect };
 }
 
 /**

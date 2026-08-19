@@ -59,6 +59,25 @@ router.post('/wrong-history', quizController.postWrongHistory);
 
 router.post('/wrong-review', quizController.postWrongReview);
 
+router.post(
+    '/grade-question',
+    validate([
+        body('questionId')
+            .isInt({ min: 1 })
+            .withMessage('Câu hỏi không hợp lệ.'),
+        body('selected')
+            .optional()
+            .isArray()
+            .withMessage('Lựa chọn không hợp lệ.'),
+        body('selected.*')
+            .optional()
+            .isInt({ min: 0 })
+            .withMessage('Lựa chọn không hợp lệ.'),
+        body('textValue').optional().isString().withMessage('Câu trả lời không hợp lệ.')
+    ]),
+    quizController.postGradeQuestion
+);
+
 router.get('/history/all', requireAdmin, quizController.getAllQuizHistory);
 
 router.get('/history', quizController.getQuizHistory);
