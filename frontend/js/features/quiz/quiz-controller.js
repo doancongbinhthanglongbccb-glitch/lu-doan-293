@@ -391,6 +391,10 @@ export class QuizController {
         });
         st.isCorrect = !!result.correct;
         st.isLocked = true;
+        st.explanation = result.explanation || null;
+        st.correctIndexes = Array.isArray(result.explanation?.correctIndexes)
+            ? result.explanation.correctIndexes
+            : null;
         answers[index] = st;
         store.setState({ answers });
         if (this.wrongHistoryService) {
@@ -1008,7 +1012,7 @@ export class QuizController {
             leaves.map((item, idx) => [`${item.ref.p}:${item.ref.c ?? ''}`, idx])
         );
         const hasGroups = (originalData.topics || []).some(isTopicParent);
-        container.className = hasGroups ? 'topic-review-list' : 'topic-grid-container';
+        container.className = (hasGroups ? 'topic-review-list' : 'topic-grid-container') + ' list-scroll';
 
         (originalData.topics || []).forEach((topic, p) => {
             if (isTopicParent(topic)) {

@@ -3,7 +3,7 @@ import * as wrongModel from '../models/wrong-answer.model.js';
 import * as historyModel from '../models/quiz-history.model.js';
 import * as examService from './exam.service.js';
 import * as practiceMixedService from './practice-mixed.service.js';
-import { gradeQuestion } from '../utils/question-payload.js';
+import { gradeQuestion, practiceExplanation } from '../utils/question-payload.js';
 
 export function getQuiz() {
     return quizModel.getQuizData();
@@ -146,7 +146,11 @@ export function gradePracticeQuestion(body = {}) {
         : [];
     const textValue = body.textValue != null ? String(body.textValue) : '';
     const grade = gradeQuestion(questions[0], { selected, textValue });
-    return { answered: grade.answered, correct: grade.isCorrect };
+    const out = { answered: grade.answered, correct: grade.isCorrect };
+    if (grade.answered && !grade.isCorrect) {
+        out.explanation = practiceExplanation(questions[0]);
+    }
+    return out;
 }
 
 /**

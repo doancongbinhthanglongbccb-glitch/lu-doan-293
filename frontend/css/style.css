@@ -359,6 +359,16 @@
             border-radius: var(--radius-sm);
         }
         .answer-correct-box b { display: block; margin-bottom: 8px; color: var(--green-accent); }
+        .q-explain-box {
+            margin-top: 12px;
+            padding: 12px 14px;
+            background: #fff7ed;
+            color: #9a3412;
+            border: 1px solid #fdba74;
+            border-radius: var(--radius-sm);
+        }
+        .q-explain-box b { display: block; margin-bottom: 8px; }
+        .q-explain-box .formatted-answer { margin: 0; }
         .formatted-user-answer {
             padding: 10px;
             background: #f8f9fa;
@@ -738,6 +748,10 @@
         
         /* TOPIC REVIEW STYLES */
         .btn-purple { background: #9b59b6; color: white; }
+        .list-scroll {
+            max-height: min(60vh, 480px);
+            overflow-y: auto;
+        }
         .topic-review-list {
             display: flex;
             flex-direction: column;

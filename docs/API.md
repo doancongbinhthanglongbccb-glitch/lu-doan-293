@@ -26,7 +26,7 @@ Chi tiết đầy đủ: [backend/README.md](../backend/README.md)
 | GET | `/wrong-history` | User |
 | POST | `/wrong-history` | User |
 | POST | `/wrong-review` | User — ôn câu sai của chính mình (`topicIds`, `minWrongCount`, `count`) |
-| POST | `/grade-question` | User — chấm 1 câu ôn tập (`questionId`, `selected?`, `textValue?`). Trả `{ answered, correct }`, **không** `isCorrect`. |
+| POST | `/grade-question` | User — chấm 1 câu ôn tập (`questionId`, `selected?`, `textValue?`). Trả `{ answered, correct }`; khi sai thêm `explanation` (đáp án đúng). **Không** `isCorrect`. |
 | GET | `/practice-mixed/sets` | User — danh sách bộ + tiến độ |
 | GET | `/practice-mixed/sets/:id` | User — nội dung bộ (**không** `isCorrect`) |
 | POST | `/practice-mixed/sets/:id/progress` | User — ghi tiến độ |

@@ -52,6 +52,7 @@ export class QuestionRenderer {
             html += this._renderOptions(q, ansState, mode);
         }
         html += '</div>';
+        html += this._renderExplanation(q, ansState, mode);
         html += this._renderActionBar(mode, ansState);
         this.container.innerHTML = html;
         this._bindEvents(q, index, mode, ansState);
@@ -106,8 +107,12 @@ export class QuestionRenderer {
             const isSel = ansState?.selected.includes(idx);
             let c = 'opt-item' + (isSel ? ' selected' : '');
             if (mode === QUIZ_MODES.REVIEW && ansState?.isLocked) {
+                const keys = Array.isArray(ansState.correctIndexes) ? ansState.correctIndexes : null;
                 if (typeof ans.isCorrect === 'boolean') {
                     if (ans.isCorrect) c += ' correct selected';
+                    else if (isSel) c += ' wrong selected';
+                } else if (keys) {
+                    if (keys.includes(idx)) c += ' correct selected';
                     else if (isSel) c += ' wrong selected';
                 } else if (isSel) {
                     c += ansState.isCorrect ? ' correct selected' : ' wrong selected';
@@ -120,6 +125,35 @@ export class QuestionRenderer {
                 `<div class="q-content">${sanitizeRichHtml(ans.html)}</div></div>`;
         });
         return html;
+    }
+
+    /**
+     * @param {object} q
+     * @param {object|undefined} ansState
+     * @param {string} mode
+     * @returns {string}
+     */
+    _renderExplanation(q, ansState, mode) {
+        if (mode !== QUIZ_MODES.REVIEW || !ansState?.isLocked || ansState.isCorrect) return '';
+        const html = ansState.explanation?.html;
+        if (html) {
+            return (
+                '<div class="q-explain-box" role="status">' +
+                '<b>Giải thích</b>' +
+                '<div class="formatted-answer"><span>Đáp án đúng:</span> ' +
+                sanitizeRichHtml(html) +
+                '</div></div>'
+            );
+        }
+        const corAns = (q.answers || []).find(a => a.isCorrect);
+        if (!corAns) return '';
+        return (
+            '<div class="q-explain-box" role="status">' +
+            '<b>Giải thích</b>' +
+            '<div class="formatted-answer"><span>Đáp án đúng:</span> ' +
+            formatAnswerForDisplay(corAns.html) +
+            '</div></div>'
+        );
     }
 
     /**

@@ -310,6 +310,9 @@ describe('P0 answer leak — GET /quiz, outline, exam start, wrong-review', () =
         assert.equal(wrong.json.data.answered, true);
         assert.equal(wrong.json.data.correct, false);
         assert.equal(wrongRaw.includes('"isCorrect"'), false);
+        assert.ok(wrong.json.data.explanation);
+        assert.deepEqual(wrong.json.data.explanation.correctIndexes, [0]);
+        assert.equal(right.json.data.explanation, undefined);
         assert.equal(wrong.json.data.questions, undefined);
         assert.equal(wrong.json.data.answers, undefined);
     });

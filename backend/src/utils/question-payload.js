@@ -55,3 +55,25 @@ export function gradeQuestion(q, answerState) {
         .sort((a, b) => a - b);
     return { answered: true, isCorrect: JSON.stringify(selected) === JSON.stringify(corIdx) };
 }
+
+/**
+ * Nội dung giải thích khi trả lời sai — không dùng key isCorrect.
+ * @param {object} q
+ * @returns {{ correctIndexes: number[], html: string }}
+ */
+export function practiceExplanation(q) {
+    const type = q.type || '';
+    if (type === 'Fillintheblank' || type === 'essayquestion') {
+        const cor = (q.answers || []).find(a => a && a.isCorrect);
+        return { correctIndexes: [], html: cor ? String(cor.html || '') : '' };
+    }
+    const correctIndexes = [];
+    const parts = [];
+    (q.answers || []).forEach((a, i) => {
+        if (!a || !a.isCorrect) return;
+        correctIndexes.push(i);
+        const letter = a.letter ? `<strong>${a.letter}.</strong> ` : '';
+        parts.push(`<div>${letter}${a.html || ''}</div>`);
+    });
+    return { correctIndexes, html: parts.join('') };
+}

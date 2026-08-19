@@ -141,16 +141,20 @@
 }
 
 .admin-settings-stack {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: 20px;
-    max-width: 720px;
+    width: 100%;
+    align-items: stretch;
 }
 .admin-settings-card {
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
     background: #fff;
     padding: 18px 20px 16px;
+    min-width: 0;
+    height: 100%;
+    box-sizing: border-box;
 }
 .admin-settings-card-title {
     margin: 0 0 14px;
@@ -161,8 +165,9 @@
     letter-spacing: 0.03em;
 }
 .admin-settings-actions {
+    grid-column: 1 / -1;
     display: flex;
-    justify-content: flex-start;
+    justify-content: flex-end;
 }
 
 /* Toolbar — title left, actions right */
@@ -237,16 +242,24 @@
 }
 
 .admin-settings-form {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-end;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    align-items: end;
     gap: 12px;
-    margin-bottom: 24px;
+    margin-bottom: 0;
 }
 
 .admin-settings-form .input-group {
-    flex: 1 1 200px;
     margin-bottom: 0;
+    min-width: 0;
+}
+.admin-settings-form .admin-search-input {
+    width: 100%;
+    min-width: 0;
+    flex: none;
+}
+.admin-settings-form--single {
+    grid-template-columns: 1fr;
 }
 .btn-toolbar {
     min-height: 44px;
@@ -529,18 +542,15 @@
 
 /* Tables — shared; full width of panel-inner / content column */
 .table-wrap {
-    overflow-x: auto;
+    overflow: auto;
+    max-height: min(62vh, calc(100dvh - 300px));
     width: 100%;
     box-sizing: border-box;
     border: 1px solid var(--border-color);
     border-radius: var(--radius-sm);
     background: #fff;
 }
-#panelQuestions .admin-content .table-wrap {
-    max-height: min(70vh, calc(100dvh - 260px));
-    overflow: auto;
-}
-#panelQuestions .admin-content .admin-table thead th {
+.admin-table thead th {
     position: sticky;
     top: 0;
     z-index: 1;
@@ -829,6 +839,15 @@
         min-width: 0;
         width: 100%;
         flex: 1 1 100%;
+    }
+    .admin-settings-stack {
+        grid-template-columns: 1fr;
+    }
+    .admin-settings-form {
+        grid-template-columns: 1fr;
+    }
+    .admin-settings-form .btn-toolbar {
+        width: 100%;
     }
     .btn-toolbar {
         flex: 1 1 auto;
