@@ -365,12 +365,13 @@ export function getQuestionsByDbIds(ids) {
 
 /**
  * Load full quiz payload — chủ đề 2 cấp (parent → children) hoặc leaf legacy.
- * @returns {{ title: string, topics: object[], settings: object }}
+ * @returns {{ title: string, topics: object[], settings: object, version: number }}
  */
 export function getQuizData() {
     const db = getDb();
-    const meta = db.prepare('SELECT title FROM quiz_meta WHERE id = 1').get();
+    const meta = db.prepare('SELECT title, version FROM quiz_meta WHERE id = 1').get();
     const title = meta?.title || DEFAULT_QUIZ_TITLE;
+    const version = meta?.version > 0 ? meta.version : 1;
 
     const rows = db
         .prepare(
@@ -414,7 +415,7 @@ export function getQuizData() {
         };
     });
 
-    return { title, topics, settings: getQuizSettings() };
+    return { title, topics, settings: getQuizSettings(), version };
 }
 
 /**
@@ -471,36 +472,55 @@ export function replaceQuizData(data) {
     const title = data.title || DEFAULT_QUIZ_TITLE;
     const topics = data.topics;
 
-    runTransaction(db, () => {
-        db.prepare(
-            `INSERT INTO quiz_meta (id, title, updated_at, seed_applied) VALUES (1, ?, datetime('now'), 1)
-             ON CONFLICT(id) DO UPDATE SET title = excluded.title, updated_at = datetime('now'), seed_applied = 1`
-        ).run(title);
-
-        const existingTopicIds = db.prepare('SELECT id FROM topics').all().map(r => r.id);
-        const keptTopicIds = new Set();
-
-        topics.forEach((topic, pIndex) => {
-            const hasChildren = Array.isArray(topic.children) && topic.children.length > 0;
-
-            if (hasChildren) {
-                const parentId = upsertTopicRow(db, topic, null, pIndex, keptTopicIds);
-                topic.children.forEach((child, cIndex) => {
-                    const childId = upsertTopicRow(db, child, parentId, cIndex, keptTopicIds);
-                    syncTopicQuestions(db, childId, child.questions || []);
-                });
-            } else {
-                const leafId = upsertTopicRow(db, topic, null, pIndex, keptTopicIds);
-                syncTopicQuestions(db, leafId, topic.questions || []);
+    runTransaction(
+        db,
+        () => {
+            const currentVersion = db.prepare('SELECT version FROM quiz_meta WHERE id = 1').get()
+                ?.version ?? 1;
+            const incomingVersion = Number(data.version);
+            if (!Number.isInteger(incomingVersion) || incomingVersion !== currentVersion) {
+                const err = new Error(
+                    'Dữ liệu đã được người khác cập nhật. Vui lòng tải lại trang trước khi lưu.'
+                );
+                err.status = 409;
+                throw err;
             }
-        });
 
-        for (const id of existingTopicIds) {
-            if (!keptTopicIds.has(id)) {
-                db.prepare('DELETE FROM topics WHERE id = ?').run(id);
+            db.prepare(
+                `INSERT INTO quiz_meta (id, title, updated_at, seed_applied) VALUES (1, ?, datetime('now'), 1)
+                 ON CONFLICT(id) DO UPDATE SET title = excluded.title, updated_at = datetime('now'), seed_applied = 1`
+            ).run(title);
+
+            const existingTopicIds = db.prepare('SELECT id FROM topics').all().map(r => r.id);
+            const keptTopicIds = new Set();
+
+            topics.forEach((topic, pIndex) => {
+                const hasChildren = Array.isArray(topic.children) && topic.children.length > 0;
+
+                if (hasChildren) {
+                    const parentId = upsertTopicRow(db, topic, null, pIndex, keptTopicIds);
+                    topic.children.forEach((child, cIndex) => {
+                        const childId = upsertTopicRow(db, child, parentId, cIndex, keptTopicIds);
+                        syncTopicQuestions(db, childId, child.questions || []);
+                    });
+                } else {
+                    const leafId = upsertTopicRow(db, topic, null, pIndex, keptTopicIds);
+                    syncTopicQuestions(db, leafId, topic.questions || []);
+                }
+            });
+
+            for (const id of existingTopicIds) {
+                if (!keptTopicIds.has(id)) {
+                    db.prepare('DELETE FROM topics WHERE id = ?').run(id);
+                }
             }
-        }
-    });
+
+            db.prepare(
+                `UPDATE quiz_meta SET version = version + 1, updated_at = datetime('now') WHERE id = 1`
+            ).run();
+        },
+        { immediate: true }
+    );
 
     return getQuizData();
 }
@@ -540,7 +560,11 @@ export function importQuestionsToTopic(topicId, questions) {
             added++;
         });
 
-        db.prepare('UPDATE quiz_meta SET seed_applied = 1 WHERE id = 1').run();
+        db.prepare(
+            `UPDATE quiz_meta
+             SET seed_applied = 1, version = version + 1, updated_at = datetime('now')
+             WHERE id = 1`
+        ).run();
     });
 
     return { added, topicId };

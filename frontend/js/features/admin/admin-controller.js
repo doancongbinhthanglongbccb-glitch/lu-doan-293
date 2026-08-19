@@ -98,7 +98,12 @@ export class AdminController {
     async _loadData() {
         this.quizData = await quizRepo.loadQuizData();
         if (repairEssayQuestions(this.quizData)) {
-            this.quizData = await quizRepo.saveQuizData(this.quizData);
+            try {
+                this.quizData = await quizRepo.saveQuizData(this.quizData);
+            } catch (err) {
+                if (this._handleStaleQuizConflict(err)) return;
+                throw err;
+            }
         }
     }
 
@@ -299,9 +304,27 @@ export class AdminController {
             this.renderQuestionList();
         } catch (err) {
             this.quizData = snapshot;
+            if (this._handleStaleQuizConflict(err)) return;
             Toast.error(err.message || 'Không lưu được dữ liệu.');
             throw err;
         }
+    }
+
+    /**
+     * PUT /quiz 409: tab đang cầm dữ liệu cũ — hỏi reload, không ghi đè.
+     * @param {Error} err
+     * @returns {boolean}
+     */
+    _handleStaleQuizConflict(err) {
+        if (err?.status !== 409) return false;
+        ModalManager.confirm({
+            title: 'Dữ liệu đã cũ',
+            message:
+                'Dữ liệu đã bị thay đổi bởi người khác/tab khác. Bạn muốn tải lại mới nhất không?',
+            confirmText: 'Tải lại',
+            onConfirm: () => window.location.reload()
+        });
+        return true;
     }
 
     openTopicModal(mode, ref = null) {

@@ -8,7 +8,7 @@ SQLite file: `backend/database/cbquiz.db` (gitignore)
 |------|--------|
 | `users` | Tài khoản (military_id, bcrypt password) |
 | `refresh_tokens` | JWT refresh token hashes |
-| `quiz_meta` | Tiêu đề ngân hàng câu hỏi |
+| `quiz_meta` | Tiêu đề ngân hàng câu hỏi + `version` (optimistic lock PUT /quiz) |
 | `topics` | Chủ đề |
 | `questions` | Câu hỏi (payload JSON) |
 | `wrong_answers` | Lịch sử câu sai theo user |

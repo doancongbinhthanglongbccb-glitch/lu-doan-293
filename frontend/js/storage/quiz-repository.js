@@ -51,6 +51,10 @@ export function normalizeData(data) {
     if (data.settings && typeof data.settings === 'object') {
         data.settings = { ...data.settings };
     }
+    if (data.version != null) {
+        const parsed = parseInt(data.version, 10);
+        if (parsed > 0) data.version = parsed;
+    }
     return sanitizeQuizDataHtml(data);
 }
 

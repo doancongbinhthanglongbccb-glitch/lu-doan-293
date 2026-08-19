@@ -41,7 +41,8 @@ CREATE TABLE IF NOT EXISTS quiz_meta (
     seed_applied INTEGER NOT NULL DEFAULT 0,
     practice_mixed_question_count INTEGER NOT NULL DEFAULT 30,
     practice_mixed_set_count INTEGER NOT NULL DEFAULT 5,
-    exam_time_buffer_minutes INTEGER NOT NULL DEFAULT 30
+    exam_time_buffer_minutes INTEGER NOT NULL DEFAULT 30,
+    version     INTEGER NOT NULL DEFAULT 1
 );
 
 CREATE TABLE IF NOT EXISTS topics (

@@ -19,8 +19,8 @@ Chi tiết đầy đủ: [backend/README.md](../backend/README.md)
 
 | Method | Path | Auth |
 |--------|------|------|
-| GET | `/` | User |
-| PUT | `/` | Admin |
+| GET | `/` | User — payload có `version` (optimistic lock) |
+| PUT | `/` | Admin — gửi kèm `version`; lệch → `409` |
 | PATCH | `/settings` | Admin — cài đặt ôn tập + buffer Kiểm tra |
 | GET | `/wrong-history` | User |
 | POST | `/wrong-history` | User |

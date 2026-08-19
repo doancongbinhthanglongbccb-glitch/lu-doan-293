@@ -325,6 +325,19 @@ function ensureExamTimeBufferMinutes() {
     }
 }
 
+/** Optimistic lock cho PUT /quiz — DB cũ nhận version = 1. */
+function ensureQuizMetaVersion() {
+    const db = getDb();
+    try {
+        db.prepare(
+            'ALTER TABLE quiz_meta ADD COLUMN version INTEGER NOT NULL DEFAULT 1'
+        ).run();
+        console.log('[migrate] Added quiz_meta.version column.');
+    } catch (err) {
+        if (!String(err.message).includes('duplicate column')) throw err;
+    }
+}
+
 function isQuizSeedApplied() {
     const row = getDb().prepare('SELECT seed_applied FROM quiz_meta WHERE id = 1').get();
     return !!row?.seed_applied;
@@ -412,7 +425,9 @@ function seedQuizFromFile() {
     }
 
     const raw = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
-    replaceQuizData(raw);
+    const version =
+        getDb().prepare('SELECT version FROM quiz_meta WHERE id = 1').get()?.version ?? 1;
+    replaceQuizData({ ...raw, version });
     markQuizSeedApplied();
 
     const count = raw.topics?.reduce((n, t) => n + (t.questions?.length || 0), 0) || 0;
@@ -431,6 +446,7 @@ try {
     ensureExamSessionSetsV2();
     ensureExamSessionBattalions();
     ensureExamTimeBufferMinutes();
+    ensureQuizMetaVersion();
     seedAdmin();
     seedQuizMeta();
     seedQuizFromFile();
