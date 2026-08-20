@@ -579,7 +579,7 @@ function mapResultRow(row) {
         sessionId: row.session_id,
         assignmentId: row.assignment_id ?? null,
         topicId,
-        topicTitle: row.topic_title || (topicId == null ? 'Trộn tổng hợp' : null),
+        topicTitle: row.topic_title || (topicId == null ? 'Tổng hợp' : null),
         branch,
         score: row.score,
         total: row.total,
@@ -673,7 +673,7 @@ export function listResultsAdmin({
 }
 
 /**
- * Tiến độ: tiểu đoàn × lĩnh vực gốc (+ cột Trộn) cho một đợt.
+ * Tiến độ: tiểu đoàn × lĩnh vực gốc (+ cột Tổng hợp) cho một đợt.
  * Ô chưa từng có kết quả = null (UI hiện "—").
  * @param {number} sessionId
  */
@@ -704,7 +704,7 @@ export function getProgressMatrix(sessionId) {
             key: 'mixed',
             kind: 'mixed',
             topicId: null,
-            title: 'Trộn tổng hợp',
+            title: 'Tổng hợp',
             opened: mixedOpened
         }
     ];

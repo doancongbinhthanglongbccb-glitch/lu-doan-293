@@ -15,7 +15,7 @@
 <body class="admin-page">
     <header class="header">
         <div class="header-left">
-            <img src="assets/logo.png" alt="Logo Đoàn Công binh Thăng Long" class="header-logo">
+            <img src="assets/logo.png" alt="Logo Lữ đoàn 293" class="header-logo">
             <span>Quản trị hệ thống</span>
         </div>
         <div class="header-right">
@@ -265,7 +265,8 @@
                         <header class="admin-toolbar admin-toolbar-sub admin-toolbar--end">
                             <p class="admin-hint admin-hint-inline">Số = đã nộp / sĩ số. Dấu — = lĩnh vực không có đề trong đợt này.</p>
                             <div class="toolbar-actions">
-                                <select id="progressMatrixSession" class="admin-search-input admin-filter-select progress-session-select"
+                                <select id="progressMatrixSession"
+                                    class="admin-search-input admin-filter-select progress-session-select"
                                     aria-label="Chọn đợt kiểm tra">
                                     <option value="">Chọn đợt</option>
                                 </select>
@@ -290,7 +291,7 @@
                                     aria-label="Lọc theo nhánh">
                                     <option value="check">Tất cả nhánh</option>
                                     <option value="topic">Theo lĩnh vực</option>
-                                    <option value="mixed">Trộn tổng hợp</option>
+                                    <option value="mixed">Tổng hợp</option>
                                 </select>
                                 <input type="search" id="historySearchInput" class="admin-search-input"
                                     placeholder="Tìm số quân nhân hoặc họ tên..." aria-label="Tìm lịch sử Kiểm tra">
@@ -312,7 +313,6 @@
                                     <thead>
                                         <tr>
                                             <th>Thời gian</th>
-                                            <th>Số QN</th>
                                             <th>Họ tên</th>
                                             <th>Tiểu đoàn</th>
                                             <th>Loại</th>
@@ -399,12 +399,8 @@
             </div>
             <div class="input-group admin-field-battalions">
                 <span class="admin-field-label" id="examSessionBattalionLabel">Tiểu đoàn</span>
-                <div
-                    id="examSessionBattalionList"
-                    class="admin-choice-list"
-                    role="group"
-                    aria-labelledby="examSessionBattalionLabel"
-                ></div>
+                <div id="examSessionBattalionList" class="admin-choice-list" role="group"
+                    aria-labelledby="examSessionBattalionLabel"></div>
             </div>
             <div class="input-group">
                 <label for="examSessionQPerSet">Số câu / bộ</label>

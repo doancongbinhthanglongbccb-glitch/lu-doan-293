@@ -17,7 +17,7 @@ export function formatExamScore(record) {
  * @returns {string}
  */
 export function formatAdminBranchLabel(record) {
-    if (record.branch === 'mixed') return 'Trộn tổng hợp';
+    if (record.branch === 'mixed') return 'Tổng hợp';
     return record.topicTitle || 'Lĩnh vực';
 }
 
@@ -37,8 +37,8 @@ export function normalizeExamRecord(record) {
         title: record.topicTitle || detail.title || 'Bài kiểm tra',
         modeLabel:
             record.branch === 'mixed'
-                ? 'Kiểm tra · Trộn'
-                : `Kiểm tra · ${record.topicTitle || 'Lĩnh vực'}`,
+                ? 'Tổng hợp'
+                : `${record.topicTitle || 'Lĩnh vực'}`,
         timeLimit: detail.timeLimit || '—',
         scoreText: formatExamScore(record),
         total: record.total ?? '—',
@@ -65,7 +65,7 @@ export function renderAdminHistoryTable(tbody, records, emptyMessage) {
     tbody.innerHTML = '';
 
     if (!records.length) {
-        tbody.innerHTML = `<tr><td colspan="6" class="empty-cell">${emptyMessage}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="empty-cell">${emptyMessage}</td></tr>`;
         return;
     }
 
@@ -74,7 +74,6 @@ export function renderAdminHistoryTable(tbody, records, emptyMessage) {
         const tr = document.createElement('tr');
         tr.innerHTML =
             `<td>${escapeAttr(row.createdAtText)}</td>` +
-            `<td><code class="user-id">${escapeAttr(row.militaryId)}</code></td>` +
             `<td>${escapeAttr(row.fullName)}</td>` +
             `<td>${escapeAttr(row.battalionName)}</td>` +
             `<td>${escapeAttr(formatAdminBranchLabel(record))}</td>` +

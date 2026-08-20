@@ -66,11 +66,11 @@ Trong tab **Đợt kiểm tra** có 3 sub-tab (mặc định: Quản lý đợt)
 
 1. **Quản lý đợt**
    - **+ Tạo đợt:** chọn một hoặc nhiều tiểu đoàn, số câu/bộ, số bộ, thời gian làm bài, giờ mở — đóng.
-   - **Mở đợt:** sinh bộ đề cho **cả** nhánh Theo lĩnh vực (từng lĩnh vực gốc đủ câu) **và** Trộn tổng hợp (nếu pool đủ). Một tiểu đoàn không được nằm trong 2 đợt `open` cùng lúc.
+   - **Mở đợt:** sinh bộ đề cho **cả** nhánh Theo lĩnh vực (từng lĩnh vực gốc đủ câu) **và** Tổng hợp (nếu pool đủ). Một tiểu đoàn không được nằm trong 2 đợt `open` cùng lúc.
    - **Đóng đợt:** lính không bắt đầu mới; bài đang làm auto-submit khi hết giờ đợt.
    - **Tái tạo đề** (draft/đóng): xóa assignment cũ, sinh lại bộ.
-2. **Tiến độ:** chọn đợt → bảng Tiểu đoàn × (từng lĩnh vực + Trộn). Ô = `đã hoàn thành / quân số approved`. Ô **—** = lĩnh vực chưa sinh đề trong đợt đó.
-3. **Lịch sử Kiểm tra:** lọc tiểu đoàn, nhánh (tất cả / lĩnh vực / trộn), tìm theo số QN hoặc họ tên. Chỉ kết quả từ bảng `exam_results`.
+2. **Tiến độ:** chọn đợt → bảng Tiểu đoàn × (từng lĩnh vực + Tổng hợp). Ô = `đã hoàn thành / quân số approved`. Ô **—** = lĩnh vực chưa sinh đề trong đợt đó.
+3. **Lịch sử Kiểm tra:** lọc tiểu đoàn, nhánh (tất cả / lĩnh vực / tổng hợp), tìm theo số QN hoặc họ tên. Chỉ kết quả từ bảng `exam_results`.
 
 Link cũ `#panelHistory` vẫn mở đúng sub-tab Lịch sử Kiểm tra.
 
@@ -82,8 +82,8 @@ Link cũ `#panelHistory` vẫn mở đúng sub-tab Lịch sử Kiểm tra.
 |--------|--------|
 | Ôn tập từng phần | Chọn chủ đề lá, làm tự do, có đáp án ngay |
 | Ôn tập tổng hợp | Chọn **Bộ 1…N** cố định, tiến độ riêng từng user |
-| Kiểm tra | Luôn thấy nút; vào được khi có đợt mở cho tiểu đoàn + đúng giờ → chọn **Lĩnh vực / Trộn** → chọn **Bộ** → làm 1 lần / nhánh / đợt |
-| Lịch sử Kiểm tra | 2 tab: Theo lĩnh vực / Trộn — chỉ kết quả của chính mình |
+| Kiểm tra | Luôn thấy nút; vào được khi có đợt mở cho tiểu đoàn + đúng giờ → chọn **Lĩnh vực / Tổng hợp** → chọn **Bộ** → làm 1 lần / nhánh / đợt |
+| Lịch sử Kiểm tra | 2 tab: Theo lĩnh vực / Tổng hợp — chỉ kết quả của chính mình |
 | Ôn câu sai | Tự ghi nhận khi làm sai (ôn / kiểm tra) |
 
 ---
@@ -111,7 +111,7 @@ Chạy trên môi trường dev (`npm run migrate` + `npm run dev`), ít nhất 
 
 ### Kiểm tra — admin
 
-- [ ] Tạo đợt 2 tiểu đoàn, mở → có bộ theo lĩnh vực + trộn (nếu đủ câu)
+- [ ] Tạo đợt 2 tiểu đoàn, mở → có bộ theo lĩnh vực + tổng hợp (nếu đủ câu)
 - [ ] Mở đợt thứ 2 trùng tiểu đoàn → **báo lỗi**
 - [ ] Ma trận: chọn đợt → ô lĩnh vực chưa sinh đề = **—**; đã có kết quả = `X/Y`
 
@@ -120,7 +120,7 @@ Chạy trên môi trường dev (`npm run migrate` + `npm run dev`), ít nhất 
 - [ ] Trước giờ mở / không có đợt → toast, ở Home
 - [ ] Trong giờ: Lĩnh vực → chọn topic → chọn Bộ → làm → nộp → điểm server-side
 - [ ] Cùng nhánh / đợt làm lại → **bị chặn**
-- [ ] Trộn tổng hợp: luồng tương tự
+- [ ] Tổng hợp: luồng tương tự
 - [ ] Hết giờ đợt khi đang làm → auto-submit
 
 ### Lịch sử & báo cáo

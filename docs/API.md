@@ -47,7 +47,7 @@ Tất cả route yêu cầu Bearer token (`requireAuth`).
 | GET | `/sessions/open` | User | Đợt đang mở cho tiểu đoàn của user |
 | GET | `/history` | User | Lịch sử Kiểm tra của chính mình (`?branch=topic\|mixed&limit=`) |
 | GET | `/sessions/:id/topics` | User | Lĩnh vực có bộ trong đợt |
-| GET | `/sessions/:id/branches` | User | Nhánh khả dụng (lĩnh vực / trộn) |
+| GET | `/sessions/:id/branches` | User | Nhánh khả dụng (lĩnh vực / tổng hợp) |
 | GET | `/sessions/:id/sets` | User | Danh sách bộ (`?topicId=` nếu theo lĩnh vực) |
 | GET | `/sessions/:id/readiness` | User | Có thể bắt đầu không (`?topicId=`) |
 | POST | `/sessions/:id/start` | User | Bắt đầu bộ đã chọn (`sessionSetId`, `topicId?`). Payload câu **không** có `isCorrect`. |
