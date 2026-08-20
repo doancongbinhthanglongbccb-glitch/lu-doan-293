@@ -1,9 +1,11 @@
 import * as quizModel from '../models/quiz.model.js';
 import * as wrongModel from '../models/wrong-answer.model.js';
 import * as historyModel from '../models/quiz-history.model.js';
+import * as examModel from '../models/exam-session.model.js';
+import * as practiceModel from '../models/practice-mixed.model.js';
 import * as examService from './exam.service.js';
 import * as practiceMixedService from './practice-mixed.service.js';
-import { gradeQuestion, practiceExplanation } from '../utils/question-payload.js';
+import { gradeQuestion, practiceExplanation, stripCorrectFlags } from '../utils/question-payload.js';
 
 export function getQuiz() {
     return quizModel.getQuizData();
@@ -55,32 +57,12 @@ export function getWrongHistory(userId) {
 }
 
 /**
+ * POST /wrong-history không còn nhận map hash từ client — chỉ trả lịch sử server.
  * @param {number} userId
- * @param {object} body
+ * @param {object} [_body]
  */
-/**
- * Sanitize client history maps — only string keys, non-negative integers.
- * @param {Record<string, unknown>} map
- * @returns {Record<string, number>}
- */
-function sanitizeHistoryMap(map) {
-    if (!map || typeof map !== 'object') return {};
-    const out = {};
-    for (const [key, value] of Object.entries(map)) {
-        if (typeof key !== 'string' || !key.trim()) continue;
-        const n = Number(value);
-        if (!Number.isFinite(n) || n < 0) continue;
-        out[key] = Math.floor(n);
-    }
-    return out;
-}
-
-export function saveWrongHistory(userId, body) {
-    return wrongModel.saveHistory(
-        userId,
-        sanitizeHistoryMap(body.wrongHistory),
-        sanitizeHistoryMap(body.correctHistory)
-    );
+export function saveWrongHistory(userId, _body) {
+    return wrongModel.getHistory(userId);
 }
 
 function shuffleList(arr) {
@@ -121,14 +103,25 @@ export function getWrongReview(userId, body = {}) {
     }
 
     questions = shuffleList(questions).slice(0, count);
-    return { title: meta.title, questions };
+    return { title: meta.title, questions: stripCorrectFlags(questions) };
+}
+
+function isPracticeQuestionId(questionId) {
+    const id = Number(questionId);
+    if (!Number.isInteger(id) || id < 1) return false;
+    const mixed = practiceModel.findAllSets();
+    if (mixed.some(row => practiceModel.questionIdsOf(row).includes(id))) return true;
+    const meta = quizModel.findQuestionMeta(id);
+    if (!meta) return false;
+    return !!quizModel.findLeafTopicById(meta.topic_id);
 }
 
 /**
  * Chấm 1 câu ôn tập — chỉ trả đúng/sai cho lựa chọn đã gửi, không trả isCorrect.
+ * @param {number} userId
  * @param {{ questionId?: unknown, selected?: unknown, textValue?: unknown }} body
  */
-export function gradePracticeQuestion(body = {}) {
+export function gradePracticeQuestion(userId, body = {}) {
     const questionId = Number(body.questionId);
     if (!Number.isInteger(questionId) || questionId < 1) {
         const err = new Error('Câu hỏi không hợp lệ.');
@@ -141,11 +134,24 @@ export function gradePracticeQuestion(body = {}) {
         err.status = 404;
         throw err;
     }
+    if (examModel.userHasInProgressQuestion(userId, questionId)) {
+        const err = new Error('Không thể ôn tập câu hỏi khi đang trong phiên Kiểm tra.');
+        err.status = 403;
+        throw err;
+    }
+    if (!isPracticeQuestionId(questionId)) {
+        const err = new Error('Câu hỏi không thuộc bộ ôn tập.');
+        err.status = 403;
+        throw err;
+    }
     const selected = Array.isArray(body.selected)
         ? body.selected.map(Number).filter(n => Number.isInteger(n) && n >= 0)
         : [];
     const textValue = body.textValue != null ? String(body.textValue) : '';
     const grade = gradeQuestion(questions[0], { selected, textValue });
+    if (grade.answered) {
+        wrongModel.recordAnswerResult(userId, questions[0].hash, grade.isCorrect);
+    }
     const out = { answered: grade.answered, correct: grade.isCorrect };
     if (grade.answered && !grade.isCorrect) {
         out.explanation = practiceExplanation(questions[0]);

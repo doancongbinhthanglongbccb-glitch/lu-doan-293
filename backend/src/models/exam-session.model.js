@@ -420,6 +420,39 @@ export function createAssignment(data) {
 }
 
 /**
+ * Assignment đang làm dở của user (mọi đợt).
+ * @param {number} userId
+ * @returns {object[]}
+ */
+export function findInProgressAssignmentsForUser(userId) {
+    return getDb()
+        .prepare(
+            `SELECT id, session_id, user_id, question_set, status, started_at
+             FROM exam_assignments
+             WHERE user_id = ? AND status = 'in_progress'`
+        )
+        .all(userId);
+}
+
+/**
+ * @param {number} userId
+ * @param {number} questionId
+ * @returns {boolean}
+ */
+export function userHasInProgressQuestion(userId, questionId) {
+    const id = Number(questionId);
+    if (!Number.isInteger(id) || id < 1) return false;
+    return findInProgressAssignmentsForUser(userId).some(row => {
+        try {
+            const ids = JSON.parse(row.question_set);
+            return Array.isArray(ids) && ids.map(Number).includes(id);
+        } catch {
+            return false;
+        }
+    });
+}
+
+/**
  * @param {number} sessionId
  * @param {number} userId
  * @param {number|null} [topicId]

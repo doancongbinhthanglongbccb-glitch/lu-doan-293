@@ -1,5 +1,6 @@
 import { getDb } from '../../database/connection.js';
 import { runTransaction } from '../utils/transaction.js';
+import { WRONG_REVIEW_CORRECT_THRESHOLD } from '../config/constants.js';
 
 /**
  * Get wrong/correct history maps for a user.
@@ -67,4 +68,60 @@ export function saveHistory(userId, wrongHistory = {}, correctHistory = {}) {
         });
     });
     return getHistory(userId);
+}
+
+/**
+ * Ghi nhận đúng/sai theo kết quả chấm server — không nhận count từ client.
+ * @param {number} userId
+ * @param {string} hash
+ * @param {boolean} isCorrect
+ */
+export function recordAnswerResult(userId, hash, isCorrect) {
+    if (!userId || typeof hash !== 'string' || !hash.trim()) return;
+    const key = hash.trim();
+    const row = getDb()
+        .prepare(
+            `SELECT wrong_count, correct_streak FROM wrong_answers
+             WHERE user_id = ? AND question_hash = ?`
+        )
+        .get(userId, key);
+
+    let wrong = Number(row?.wrong_count) || 0;
+    let streak = Number(row?.correct_streak) || 0;
+
+    if (!isCorrect) {
+        wrong += 1;
+        streak = 0;
+    } else if (wrong > 0) {
+        wrong -= 1;
+        streak += 1;
+        if (streak >= WRONG_REVIEW_CORRECT_THRESHOLD) {
+            wrong = 0;
+            streak = 0;
+        }
+        if (wrong <= 0) {
+            wrong = 0;
+            streak = 0;
+        }
+    } else {
+        return;
+    }
+
+    if (wrong <= 0 && streak <= 0) {
+        getDb()
+            .prepare('DELETE FROM wrong_answers WHERE user_id = ? AND question_hash = ?')
+            .run(userId, key);
+        return;
+    }
+
+    getDb()
+        .prepare(
+            `INSERT INTO wrong_answers (user_id, question_hash, wrong_count, correct_streak, updated_at)
+             VALUES (?, ?, ?, ?, datetime('now'))
+             ON CONFLICT(user_id, question_hash) DO UPDATE SET
+                wrong_count = excluded.wrong_count,
+                correct_streak = excluded.correct_streak,
+                updated_at = datetime('now')`
+        )
+        .run(userId, key, wrong, streak);
 }

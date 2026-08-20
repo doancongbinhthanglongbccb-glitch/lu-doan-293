@@ -34,3 +34,6 @@ export const EXAM_SESSION_TYPES = {
 
 /** Trần độ sâu CTE cây topic — chặn treo khi parent_id tạo chu trình. */
 export const TOPIC_TREE_MAX_DEPTH = 32;
+
+/** Số lần trả lời đúng liên tiếp để gỡ câu khỏi ôn-lại-câu-sai. */
+export const WRONG_REVIEW_CORRECT_THRESHOLD = 3;

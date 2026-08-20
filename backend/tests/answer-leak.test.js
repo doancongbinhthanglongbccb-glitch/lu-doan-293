@@ -224,6 +224,7 @@ describe('P0 answer leak — GET /quiz, outline, exam start, wrong-review', () =
             `[answer-leak] ${stamp} T5 wrong-review A status=${gotA.status} hashes=${JSON.stringify(hashesA)}`
         );
         assert.equal(gotA.status, 200);
+        assert.equal(jsonHasIsCorrect(gotA.json), false);
         assert.deepEqual(hashesA, ['hash-a']);
         assert.equal(hashesA.includes('hash-b'), false);
 
@@ -289,7 +290,7 @@ describe('P0 answer leak — GET /quiz, outline, exam start, wrong-review', () =
         const q = setGot.json.data.questions.find(item => item.hash === 'hash-a') || setGot.json.data.questions[0];
         const questionId = q.dbId;
 
-        const right = await api(base, userAToken, 'POST', '/api/quiz/grade-question', {
+        const right = await api(base, userBToken, 'POST', '/api/quiz/grade-question', {
             questionId,
             selected: [0]
         });
@@ -300,7 +301,7 @@ describe('P0 answer leak — GET /quiz, outline, exam start, wrong-review', () =
         assert.equal(right.json.data.correct, true);
         assert.equal(rightRaw.includes('"isCorrect"'), false);
 
-        const wrong = await api(base, userAToken, 'POST', '/api/quiz/grade-question', {
+        const wrong = await api(base, userBToken, 'POST', '/api/quiz/grade-question', {
             questionId,
             selected: [1]
         });

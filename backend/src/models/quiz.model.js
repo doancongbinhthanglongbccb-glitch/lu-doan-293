@@ -338,6 +338,17 @@ export function getTopicsWithQuestions() {
 }
 
 /**
+ * @param {number} id
+ * @returns {{ id: number, topic_id: number, hash: string }|null}
+ */
+export function findQuestionMeta(id) {
+    const row = getDb()
+        .prepare('SELECT id, topic_id, hash FROM questions WHERE id = ?')
+        .get(id);
+    return row || null;
+}
+
+/**
  * @param {number[]} ids
  * @returns {object[]}
  */

@@ -1,5 +1,6 @@
 import * as examModel from '../models/exam-session.model.js';
 import * as quizModel from '../models/quiz.model.js';
+import * as wrongModel from '../models/wrong-answer.model.js';
 import { stripCorrectFlags, gradeQuestion } from '../utils/question-payload.js';
 import * as userModel from '../models/user.model.js';
 import * as battalionModel from '../models/battalion.model.js';
@@ -54,6 +55,40 @@ export function evaluateStartReadiness(session) {
     }
 
     return { canStart: true, minutesRemaining };
+}
+
+/**
+ * Thời gian còn lại (phút) khi resume in_progress — không reset duration.
+ * @param {object} session
+ * @param {object} assignment
+ * @returns {number}
+ */
+function computeRemainingDurationMinutes(session, assignment) {
+    const startedAt = assignment?.started_at;
+    if (!startedAt) return session.duration_minutes;
+    const now = Date.now();
+    const started = new Date(startedAt).getTime();
+    if (!Number.isFinite(started)) return session.duration_minutes;
+    const durationMs = Number(session.duration_minutes) * 60 * 1000;
+    const closeMs = new Date(session.closes_at).getTime();
+    const remainingMs = Math.min(started + durationMs, closeMs) - now;
+    return Math.max(0, remainingMs / 60000);
+}
+
+function assertSubmitWithinTime(session, assignment) {
+    const now = Date.now();
+    const closesAt = new Date(session.closes_at).getTime();
+    if (Number.isFinite(closesAt) && now > closesAt) {
+        throw err('Đợt kiểm tra đã kết thúc, không thể nộp bài.', 403);
+    }
+    if (!assignment?.started_at) return;
+    const started = new Date(assignment.started_at).getTime();
+    if (!Number.isFinite(started)) return;
+    const durationMs = Number(session.duration_minutes) * 60 * 1000;
+    const bufferMs = getBufferMinutes() * 60 * 1000;
+    if (now > started + durationMs + bufferMs) {
+        throw err('Đã hết thời gian làm bài, không thể nộp bài.', 403);
+    }
 }
 
 function parseQuestionIds(raw) {
@@ -292,11 +327,6 @@ export function startSessionForUser(sessionId, userId, body = {}) {
         throw err('Đợt kiểm tra không đang mở.');
     }
 
-    const readiness = evaluateStartReadiness(session);
-    if (!readiness.canStart) {
-        throw err(readiness.reason || 'Không thể bắt đầu làm bài.');
-    }
-
     const sessionSetId = Number(body.sessionSetId) || null;
     if (!sessionSetId) throw err('Vui lòng chọn bộ đề.');
 
@@ -310,6 +340,14 @@ export function startSessionForUser(sessionId, userId, body = {}) {
     let assignment = examModel.findAssignment(sessionId, userId, topicId);
     if (assignment?.status === 'completed') {
         throw err('Bạn đã hoàn thành phần kiểm tra này.');
+    }
+
+    const isResume = assignment?.status === 'in_progress';
+    if (!isResume) {
+        const readiness = evaluateStartReadiness(session);
+        if (!readiness.canStart) {
+            throw err(readiness.reason || 'Không thể bắt đầu làm bài.');
+        }
     }
 
     if (!assignment) {
@@ -342,7 +380,12 @@ export function startSessionForUser(sessionId, userId, body = {}) {
             status: 'in_progress',
             startedAt: new Date().toISOString()
         });
+        assignment = examModel.findAssignment(sessionId, userId, topicId);
     }
+
+    const durationMinutes = isResume
+        ? computeRemainingDurationMinutes(session, assignment)
+        : session.duration_minutes;
 
     const title = 'Kiểm tra';
 
@@ -353,7 +396,7 @@ export function startSessionForUser(sessionId, userId, body = {}) {
         title,
         questions,
         closesAt: session.closes_at,
-        durationMinutes: session.duration_minutes
+        durationMinutes
     };
 }
 
@@ -369,6 +412,8 @@ export function submitSessionForUser(sessionId, userId, body) {
     if (examModel.findResultByAssignment(assignment.id)) {
         throw err('Kết quả đã được lưu.');
     }
+
+    assertSubmitWithinTime(session, assignment);
 
     let questionSet;
     try {
@@ -388,6 +433,7 @@ export function submitSessionForUser(sessionId, userId, body) {
         const grade = gradeQuestion(q, byId.get(q.dbId) || null);
         if (grade.answered) answered += 1;
         if (grade.isCorrect) correct += 1;
+        wrongModel.recordAnswerResult(userId, q.hash, grade.isCorrect);
     });
     const total = questions.length || 1;
     const score = Math.round((correct / total) * 100) / 10;
@@ -414,7 +460,11 @@ export function submitSessionForUser(sessionId, userId, body) {
         completedAt: new Date().toISOString()
     });
 
-    return { ok: true, score, total, correct, questions };
+    const payload = { ok: true, score, total, correct };
+    if (session.status === EXAM_SESSION_STATUS.CLOSED) {
+        payload.questions = questions;
+    }
+    return payload;
 }
 
 /**

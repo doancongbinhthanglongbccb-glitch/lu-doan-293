@@ -431,14 +431,22 @@ export class QuizController {
             this._checkSubmitStarted = true;
         }
 
-        const finish = async () => {
+        const finish = async ({ serverCorrect, hasAnswerKeys } = {}) => {
             const state = store.getState();
             const answers = { ...state.answers };
             let scoreCount = 0;
             const needsServer =
                 state.mode === QUIZ_MODES.REVIEW && this._needsServerGrade(state.quizData.questions);
+            const skipLocalWrongHistory = state.mode === QUIZ_MODES.CHECK;
 
-            if (needsServer) {
+            if (state.mode === QUIZ_MODES.CHECK && !hasAnswerKeys) {
+                state.quizData.questions.forEach((_, i) => {
+                    const st = answers[i] || emptyAnswerState();
+                    st.isLocked = true;
+                    answers[i] = st;
+                });
+                scoreCount = Number.isFinite(serverCorrect) ? serverCorrect : 0;
+            } else if (needsServer) {
                 for (let i = 0; i < state.quizData.questions.length; i++) {
                     if (!answers[i]?.isLocked) {
                         await this._applyServerGrade(i);
@@ -449,12 +457,14 @@ export class QuizController {
                 state.quizData.questions.forEach((q, i) => {
                     const st = answers[i] || emptyAnswerState();
                     if (st.isCorrect) scoreCount++;
-                    this.wrongHistoryService.recordAnswer(
-                        q,
-                        !!st.isCorrect && !st.doubtful && hasAnswer(st),
-                        state.mode,
-                        state.reviewSubMode
-                    );
+                    if (!skipLocalWrongHistory) {
+                        this.wrongHistoryService.recordAnswer(
+                            q,
+                            !!st.isCorrect && !st.doubtful && hasAnswer(st),
+                            state.mode,
+                            state.reviewSubMode
+                        );
+                    }
                 });
             } else {
                 state.quizData.questions.forEach((q, i) => {
@@ -466,12 +476,14 @@ export class QuizController {
                         st.isCorrect = grade.isCorrect;
                         st.isLocked = true;
                         if (grade.isCorrect) scoreCount++;
-                        this.wrongHistoryService.recordAnswer(
-                            q,
-                            grade.isCorrect && !st.doubtful,
-                            state.mode,
-                            state.reviewSubMode
-                        );
+                        if (!skipLocalWrongHistory) {
+                            this.wrongHistoryService.recordAnswer(
+                                q,
+                                grade.isCorrect && !st.doubtful,
+                                state.mode,
+                                state.reviewSubMode
+                            );
+                        }
                     } else {
                         answers[i] = {
                             selected: [],
@@ -480,7 +492,9 @@ export class QuizController {
                             isLocked: true,
                             isCorrect: false
                         };
-                        this.wrongHistoryService.recordAnswer(q, false, state.mode, state.reviewSubMode);
+                        if (!skipLocalWrongHistory) {
+                            this.wrongHistoryService.recordAnswer(q, false, state.mode, state.reviewSubMode);
+                        }
                     }
                 });
             }
@@ -523,7 +537,10 @@ export class QuizController {
                             quizData: { ...store.getState().quizData, questions }
                         });
                     }
-                    finish().catch(err => {
+                    finish({
+                        serverCorrect: payload?.correct,
+                        hasAnswerKeys: Array.isArray(payload?.questions) && payload.questions.length > 0
+                    }).catch(err => {
                         handleError(err, { context: 'QuizController.submitExam', fallbackKey: 'NETWORK' });
                     });
                 })
@@ -1286,13 +1303,19 @@ export class QuizController {
             }
         };
 
-        if (showTimer && timerMinutes) {
+        if (showTimer && Number(timerMinutes) > 0) {
             quizTimer.start(timerMinutes * 60, {
                 onUpdateUI: updateTimerUI,
                 onExpire: () => {
                     Toast.warning('Đã hết thời gian làm bài! Hệ thống tự động thu bài.');
                     this.submitExam();
                 }
+            });
+        } else if (showTimer && mode === QUIZ_MODES.CHECK) {
+            updateTimerUI({ text: '00:00', isDanger: true });
+            queueMicrotask(() => {
+                Toast.warning('Đã hết thời gian làm bài! Hệ thống tự động thu bài.');
+                this.submitExam();
             });
         } else {
             quizTimer.startStopwatch({ onUpdateUI: updateTimerUI });

@@ -297,13 +297,8 @@ export async function loadWrongHistoryFromApi(user) {
  * @param {Record<string, number>} wrongHistory
  * @param {Record<string, number>} correctHistory
  */
-export async function syncWrongHistoryToApi(user, wrongHistory, correctHistory) {
-    if (!user) return;
-    await apiClient.post(
-        '/quiz/wrong-history',
-        { wrongHistory, correctHistory },
-        { silent: true }
-    );
+export async function syncWrongHistoryToApi() {
+    return;
 }
 
 /** @type {ReturnType<typeof setTimeout>|null} */
@@ -339,7 +334,4 @@ export async function flushWrongHistorySync(user) {
         _wrongHistorySyncTimer = null;
     }
     if (!user) return;
-    const wrongHistory = getWrongHistory(user);
-    const correctHistory = getCorrectHistory(user);
-    await syncWrongHistoryToApi(user, wrongHistory, correctHistory);
 }

@@ -78,7 +78,7 @@ export function postWrongReview(req, res, next) {
 
 export function postGradeQuestion(req, res, next) {
     try {
-        const result = quizService.gradePracticeQuestion(req.body || {});
+        const result = quizService.gradePracticeQuestion(req.user.id, req.body || {});
         sendSuccess(res, result);
     } catch (err) {
         next(err);
