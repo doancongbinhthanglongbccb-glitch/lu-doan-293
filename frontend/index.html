@@ -1,18 +1,22 @@
 <!DOCTYPE html>
 <html lang="vi">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hệ thống ôn tập trắc nghiệm</title>
-    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Noto+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <title>HỆ THỐNG ÔN - THI TRẮC NGHIỆM</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Noto+Sans:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="css/main.css">
     <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
 </head>
+
 <body>
     <header class="header">
         <div class="header-left">
             <img src="assets/logo.png" alt="Logo" class="header-logo">
-            <span>ĐOÀN CÔNG BINH THĂNG LONG</span>
+            <span>LỮ ĐOÀN 293</span>
         </div>
         <div class="header-right">
             <span class="user-badge" id="userDisplayName">User</span>
@@ -23,239 +27,244 @@
     </header>
 
     <main class="app-main">
-    <!-- SCREEN: HOME -->
-    <div id="screenHome" class="screen active">
-        <div class="card-box home-panel">
-            <h1 id="homeTitle" class="home-title">Hệ thống ôn tập trắc nghiệm</h1>
-            <h2 class="home-kicker">Chọn chế độ</h2>
+        <!-- SCREEN: HOME -->
+        <div id="screenHome" class="screen active">
+            <div class="card-box home-panel">
+                <h1 id="homeTitle" class="home-title">HỆ THỐNG ÔN - THI TRẮC NGHIỆM</h1>
+                <h2 class="home-kicker">Chọn chế độ</h2>
 
-            <div class="mode-list">
-                <button type="button" class="mode-item" id="btnModeTopicReview">
-                    <h3>Ôn tập từng phần</h3>
-                </button>
-                <button type="button" class="mode-item" id="btnModeReview">
-                    <h3>Ôn tập tổng hợp</h3>
-                </button>
-                <button type="button" class="mode-item mode-item--exam" id="btnModeCheck">
-                    <h3>Kiểm tra</h3>
-                </button>
-                <button type="button" class="mode-item" id="btnModeHistory">
-                    <h3>Lịch sử kiểm tra</h3>
-                </button>
-                <button type="button" class="mode-item" id="btnModeReviewWrong">
-                    <h3>Ôn tập các câu sai</h3>
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- SCREEN: TOPIC REVIEW -->
-    <div id="screenTopicReview" class="screen">
-        <div class="card-box" style="max-width:900px;width:95%;padding:35px;position:relative;text-align:center;">
-            <button id="btnBackHomeFromTopic" class="btn-topic-back-top">Quay lại trang trước</button>
-            <h2 style="color:#2c3e50;font-size:24px;margin-bottom:5px;font-weight:bold;text-transform:uppercase;">HỆ THỐNG ÔN TẬP TRẮC NGHIỆM</h2>
-            <h3 style="color:#1a5276;font-size:18px;margin:0 0 25px 0;font-weight:500;">Theo chủ đề</h3>
-            <div id="topicReviewList" class="topic-grid-container list-scroll" style="padding:10px;"></div>
-        </div>
-    </div>
-
-    <!-- SCREEN: ÔN TẬP TỔNG HỢP — CHỌN BỘ -->
-    <div id="screenPracticeMixed" class="screen">
-        <div class="card-box" style="max-width:900px;width:95%;padding:35px;position:relative;text-align:center;">
-            <button id="btnBackHomeFromPracticeMixed" class="btn-topic-back-top" type="button">Quay lại trang trước</button>
-            <h2 id="practiceMixedTitle" style="color:#2c3e50;font-size:24px;margin-bottom:5px;font-weight:bold;text-transform:uppercase;">Ôn tập tổng hợp</h2>
-            <h3 id="practiceMixedSubtitle" style="color:#1a5276;font-size:18px;margin:0 0 25px 0;font-weight:500;">Chọn bộ đề</h3>
-            <p id="practiceMixedHint" class="admin-hint" style="margin-bottom:16px;"></p>
-            <div id="practiceMixedList" class="topic-grid-container list-scroll" style="padding:10px;"></div>
-        </div>
-    </div>
-
-    <!-- SCREEN: KIỂM TRA -->
-    <div id="screenCheck" class="screen">
-        <div class="card-box" style="max-width:520px;width:95%;padding:30px 25px;">
-            <button id="btnBackHomeFromCheck" class="btn-topic-back-top" type="button">Quay lại</button>
-            <h2 style="color:#2c3e50;font-size:22px;margin-bottom:8px;font-weight:700;text-transform:uppercase;">Kiểm tra</h2>
-            <p id="checkScreenHint" class="admin-hint" style="margin-bottom:20px;"></p>
-            <div id="checkBranchButtons" class="app-cards" style="display:flex;flex-direction:column;gap:12px;margin-bottom:20px;"></div>
-            <div id="checkSessionList" class="list-scroll" style="display:none;"></div>
-            <div id="checkSessionDetail" style="display:none;text-align:left;">
-                <h3 id="checkSessionTitle" style="margin-bottom:8px;"></h3>
-                <p id="checkSessionMeta" class="admin-hint"></p>
-                <p id="checkSessionBlocked" class="login-error" style="display:none;"></p>
-                <button type="button" id="btnStartCheck" class="btn-large btn-orange" style="width:100%;margin-top:16px;" disabled>BẮT ĐẦU</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- SCREEN: SETUP EXAM -->
-    <div id="screenSetup" class="screen">
-        <div class="card-box" style="max-width:450px;">
-            <h3 style="color:var(--primary);margin-bottom:25px;">CÀI ĐẶT BÀI THI</h3>
-            <div class="input-group">
-                <label id="examQCountLabel">Số lượng câu hỏi:</label>
-                <input type="number" id="examQCount" value="50" min="1">
-            </div>
-            <div class="input-group">
-                <label>Thời gian làm bài (Phút):</label>
-                <input type="number" id="examTime" value="30" min="1" max="180">
-            </div>
-            <button id="btnStartExam" class="btn-large btn-orange" style="width:100%;margin:10px 0;">BẮT ĐẦU THI</button>
-            <button id="btnBackHomeFromSetup" class="btn-link">Quay lại</button>
-        </div>
-    </div>
-
-    <!-- SCREEN: SETUP WRONG REVIEW -->
-    <div id="screenSetupWrong" class="screen">
-        <div class="card-box" style="max-width:450px;">
-            <h3 style="color:var(--primary);margin-bottom:25px;">CÀI ĐẶT ÔN CÂU SAI</h3>
-            <div class="input-group">
-                <label>Số lượng câu hỏi cần ôn:</label>
-                <input type="number" id="wrongQCount" value="20" min="1">
-            </div>
-            <div class="input-group">
-                <label>Số lần sai tối thiểu của các câu đã làm:</label>
-                <input type="number" id="wrongMinCount" value="1" min="1">
-            </div>
-            <div id="wrongTopicSelection" style="margin-bottom:15px;display:none;">
-                <label style="display:block;margin-bottom:8px;font-weight:500;color:#555;">Chọn nội dung ôn tập:</label>
-                <div id="wrongTopicList" style="text-align:left;max-height:150px;overflow-y:auto;border:1px solid #ddd;padding:10px;border-radius:4px;"></div>
-            </div>
-            <button id="btnStartWrongReview" class="btn-large btn-orange" style="width:100%;margin:10px 0;">BẮT ĐẦU</button>
-            <button id="btnBackHomeFromSetupWrong" class="btn-link">Quay lại</button>
-        </div>
-    </div>
-
-    <!-- SCREEN: QUIZ -->
-    <div id="screenQuiz" class="screen screen-quiz">
-        <div class="layout-container">
-            <aside class="sidebar-column" aria-label="Điều hướng câu hỏi">
-                <div class="sidebar-brand">
-                    <img src="assets/logo.png" alt="Logo Đoàn Công binh Thăng Long" class="sidebar-logo">
+                <div class="mode-list">
+                    <button type="button" class="mode-item" id="btnModeTopicReview">
+                        <h3>Ôn tập từng phần</h3>
+                    </button>
+                    <button type="button" class="mode-item" id="btnModeReview">
+                        <h3>Ôn tập tổng hợp</h3>
+                    </button>
+                    <button type="button" class="mode-item mode-item--exam" id="btnModeCheck">
+                        <h3>Kiểm tra</h3>
+                    </button>
+                    <button type="button" class="mode-item" id="btnModeHistory">
+                        <h3>Lịch sử kiểm tra</h3>
+                    </button>
+                    <button type="button" class="mode-item" id="btnModeReviewWrong">
+                        <h3>Ôn tập các câu sai</h3>
+                    </button>
                 </div>
-                <div class="sidebar-box" id="timerBox">
-                    <div class="sidebar-box-title">
-                        <svg class="icon-inline" viewBox="0 0 24 24" aria-hidden="true" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-                        <span class="sidebar-box-title-text">Thời gian làm bài</span>
-                    </div>
-                    <div class="sidebar-time" id="timeLeftDisplay">00:00</div>
+            </div>
+        </div>
+
+        <!-- SCREEN: TOPIC REVIEW -->
+        <div id="screenTopicReview" class="screen">
+            <div class="card-box" style="max-width:900px;width:95%;padding:35px;position:relative;text-align:center;">
+                <button id="btnBackHomeFromTopic" class="btn-topic-back-top">Quay lại trang trước</button>
+                <h2 style="color:#2c3e50;font-size:24px;margin-bottom:5px;font-weight:bold;text-transform:uppercase;">HỆ THỐNG ÔN - THI TRẮC NGHIỆM</h2>
+                <h3 style="color:#1a5276;font-size:18px;margin:0 0 25px 0;font-weight:500;">Theo chủ đề</h3>
+                <div id="topicReviewList" class="topic-grid-container list-scroll" style="padding:10px;"></div>
+            </div>
+        </div>
+
+        <!-- SCREEN: ÔN TẬP TỔNG HỢP — CHỌN BỘ -->
+        <div id="screenPracticeMixed" class="screen">
+            <div class="card-box" style="max-width:900px;width:95%;padding:35px;position:relative;text-align:center;">
+                <button id="btnBackHomeFromPracticeMixed" class="btn-topic-back-top" type="button">Quay lại trang
+                    trước</button>
+                <h2 id="practiceMixedTitle"
+                    style="color:#2c3e50;font-size:24px;margin-bottom:5px;font-weight:bold;text-transform:uppercase;">Ôn
+                    tập tổng hợp</h2>
+                <h3 id="practiceMixedSubtitle" style="color:#1a5276;font-size:18px;margin:0 0 25px 0;font-weight:500;">
+                    Chọn bộ đề</h3>
+                <p id="practiceMixedHint" class="admin-hint" style="margin-bottom:16px;"></p>
+                <div id="practiceMixedList" class="topic-grid-container list-scroll" style="padding:10px;"></div>
+            </div>
+        </div>
+
+        <!-- SCREEN: KIỂM TRA -->
+        <div id="screenCheck" class="screen">
+            <div class="card-box" style="max-width:520px;width:95%;padding:30px 25px;">
+                <button id="btnBackHomeFromCheck" class="btn-topic-back-top" type="button">Quay lại</button>
+                <h2 style="color:#2c3e50;font-size:22px;margin-bottom:8px;font-weight:700;text-transform:uppercase;">
+                    Kiểm tra</h2>
+                <p id="checkScreenHint" class="admin-hint" style="margin-bottom:20px;"></p>
+                <div id="checkBranchButtons" class="app-cards"
+                    style="display:flex;flex-direction:column;gap:12px;margin-bottom:20px;"></div>
+                <div id="checkSessionList" class="list-scroll" style="display:none;"></div>
+                <div id="checkSessionDetail" style="display:none;text-align:left;">
+                    <h3 id="checkSessionTitle" style="margin-bottom:8px;"></h3>
+                    <p id="checkSessionMeta" class="admin-hint"></p>
+                    <p id="checkSessionBlocked" class="login-error" style="display:none;"></p>
+                    <button type="button" id="btnStartCheck" class="btn-large btn-orange"
+                        style="width:100%;margin-top:16px;" disabled>BẮT ĐẦU</button>
                 </div>
-                <div class="quiz-progress-meta" aria-live="polite">
-                    <span id="progressText">0/0</span>
-                    <span class="quiz-progress-sep" aria-hidden="true">·</span>
-                    <span id="percentText">0%</span>
+            </div>
+        </div>
+
+        <!-- SCREEN: SETUP WRONG REVIEW -->
+        <div id="screenSetupWrong" class="screen">
+            <div class="card-box" style="max-width:450px;">
+                <h3 style="color:var(--primary);margin-bottom:25px;">CÀI ĐẶT ÔN CÂU SAI</h3>
+                <div class="input-group">
+                    <label>Số lượng câu hỏi cần ôn:</label>
+                    <input type="number" id="wrongQCount" value="20" min="1">
                 </div>
-                <div class="sidebar-box sidebar-box-grid">
-                    <div class="sidebar-box-title">Danh sách câu hỏi</div>
-                    <div class="grid-q" id="gridQ"></div>
+                <div class="input-group">
+                    <label>Số lần sai tối thiểu của các câu đã làm:</label>
+                    <input type="number" id="wrongMinCount" value="1" min="1">
                 </div>
-            </aside>
-            <div class="main-column">
-                <h1 class="exam-title" id="quizMainTitle">Hệ thống ôn tập trắc nghiệm</h1>
-                <div class="q-box" id="qBox"></div>
-                <div class="quiz-action-bar nav-footer" role="toolbar" aria-label="Điều khiển bài làm">
-                    <button id="btnPrev" class="btn-nav btn-nav-secondary" type="button">Quay lại</button>
-                    <div class="quiz-action-bar-right">
-                        <button id="btnNext" class="btn-nav btn-nav-secondary" type="button">Tiếp theo</button>
-                        <button id="btnSubmitExam" class="btn-nav btn-submit-exam" type="button" style="display:none;">Nộp bài</button>
+                <div id="wrongTopicSelection" style="margin-bottom:15px;display:none;">
+                    <label style="display:block;margin-bottom:8px;font-weight:500;color:#555;">Chọn nội dung ôn
+                        tập:</label>
+                    <div id="wrongTopicList"
+                        style="text-align:left;max-height:150px;overflow-y:auto;border:1px solid #ddd;padding:10px;border-radius:4px;">
                     </div>
                 </div>
+                <button id="btnStartWrongReview" class="btn-large btn-orange" style="width:100%;margin:10px 0;">BẮT
+                    ĐẦU</button>
+                <button id="btnBackHomeFromSetupWrong" class="btn-link">Quay lại</button>
             </div>
         </div>
-    </div>
 
-    <!-- MODAL CONFIRM SUBMIT -->
-    <div class="modal" id="modalConfirmSubmit">
-        <div class="modal-content" style="text-align:center;">
-            <div class="modal-title" style="color:var(--primary);margin-bottom:15px;">Xác nhận Nộp bài</div>
-            <p id="submitConfirmMessage" style="margin-bottom:20px;">Bạn có chắc chắn muốn nộp bài không?</p>
-            <div style="display:flex;gap:10px;justify-content:center;">
-                <button class="btn-nav" id="btnCancelSubmit">Hủy</button>
-                <button class="btn-nav" id="btnConfirmSubmit" style="background:var(--primary);color:white;border-color:var(--primary);">Nộp Bài</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL CONFIRM EXIT -->
-    <div class="modal" id="modalConfirmExit">
-        <div class="modal-content" style="text-align:center;">
-            <div class="modal-title" style="color:var(--red-accent);margin-bottom:15px;">Xác nhận Thoát</div>
-            <p id="exitConfirmMessage" style="margin-bottom:20px;">Bạn muốn thoát?</p>
-            <div style="display:flex;gap:10px;justify-content:center;">
-                <button class="btn-nav" id="btnCancelExit">Hủy</button>
-                <button class="btn-nav" id="btnConfirmExit" style="background:var(--red-accent);color:white;border-color:var(--red-accent);">Đồng ý</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- SCREEN: EXAM HISTORY -->
-    <div id="screenHistory" class="screen">
-        <div class="card-box exam-history-box">
-            <button id="btnBackHomeFromHistory" class="btn-topic-back-top" type="button">Quay lại trang trước</button>
-            <h2 style="color:#2c3e50;font-size:22px;margin:0 0 6px 0;font-weight:700;text-transform:uppercase;">Lịch sử Kiểm tra</h2>
-            <p style="color:#666;font-size:14px;margin:0 0 16px 0;">Kết quả các lần làm bài Kiểm tra của bạn.</p>
-            <div class="res-tabs exam-history-tabs" role="tablist" aria-label="Lọc lịch sử">
-                <div class="res-tab active" id="historyTabTopic" data-history-tab="topic" role="tab">Theo lĩnh vực</div>
-                <div class="res-tab" id="historyTabMixed" data-history-tab="mixed" role="tab">Trộn tổng hợp</div>
-            </div>
-            <div id="examHistoryList" class="exam-history-list"></div>
-        </div>
-    </div>
-
-    <!-- SCREEN: RESULT -->
-    <div id="screenResult" class="screen">
-        <div class="exam-title" style="margin-bottom:5px;" id="resMainTitle"></div>
-        <div class="res-subtitle" id="resSub1"></div>
-        <div class="res-card">
-            <div class="res-tabs">
-                <div class="res-tab active" id="tabKQ">Kết quả</div>
-                <div class="res-tab" id="tabPT">Phân tích</div>
-            </div>
-            <div class="tab-content active" id="contentKQ">
-                <div class="charts-container">
-                    <div class="circle-inner-wrap" style="text-align:center;">
-                        <div class="circle-wrap blue" id="cPercent">
-                            <div class="circle-inner">
-                                <div class="c-label">Phần Trăm<br>Điểm</div>
-                                <div class="c-val" id="valPercent">0%</div>
-                            </div>
+        <!-- SCREEN: QUIZ -->
+        <div id="screenQuiz" class="screen screen-quiz">
+            <div class="layout-container">
+                <aside class="sidebar-column" aria-label="Điều hướng câu hỏi">
+                    <div class="sidebar-brand">
+                        <img src="assets/logo.png" alt="Logo Lữ đoàn 293" class="sidebar-logo">
+                    </div>
+                    <div class="sidebar-box" id="timerBox">
+                        <div class="sidebar-box-title">
+                            <svg class="icon-inline" viewBox="0 0 24 24" aria-hidden="true" width="16" height="16"
+                                fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="9" />
+                                <path d="M12 7v5l3 2" />
+                            </svg>
+                            <span class="sidebar-box-title-text">Thời gian làm bài</span>
                         </div>
+                        <div class="sidebar-time" id="timeLeftDisplay">00:00</div>
                     </div>
-                    <div class="circle-inner-wrap" style="text-align:center;">
-                        <div class="circle-wrap red" id="cScore">
-                            <div class="circle-inner">
-                                <div class="c-label">Điểm</div>
-                                <div class="c-val" id="valScore">0</div>
-                            </div>
-                        </div>
+                    <div class="quiz-progress-meta" aria-live="polite">
+                        <span id="progressText">0/0</span>
+                        <span class="quiz-progress-sep" aria-hidden="true">·</span>
+                        <span id="percentText">0%</span>
                     </div>
-                    <div class="circle-inner-wrap" style="text-align:center;">
-                        <div class="circle-wrap green" id="cTime">
-                            <div class="circle-inner">
-                                <div class="c-label">Thời Gian</div>
-                                <div class="c-val" id="valTime">0 giây</div>
-                            </div>
+                    <div class="sidebar-box sidebar-box-grid">
+                        <div class="sidebar-box-title">Danh sách câu hỏi</div>
+                        <div class="grid-q" id="gridQ"></div>
+                    </div>
+                </aside>
+                <div class="main-column">
+                <h1 class="exam-title" id="quizMainTitle">HỆ THỐNG ÔN - THI TRẮC NGHIỆM</h1>
+                    <div class="q-box" id="qBox"></div>
+                    <div class="quiz-action-bar nav-footer" role="toolbar" aria-label="Điều khiển bài làm">
+                        <button id="btnPrev" class="btn-nav btn-nav-secondary" type="button">Quay lại</button>
+                        <div class="quiz-action-bar-right">
+                            <button id="btnNext" class="btn-nav btn-nav-secondary" type="button">Tiếp theo</button>
+                            <button id="btnSubmitExam" class="btn-nav btn-submit-exam" type="button"
+                                style="display:none;">Nộp bài</button>
                         </div>
                     </div>
                 </div>
-                <div class="time-table">
-                    <div class="t-row start"><span>Thời gian bắt đầu</span><span id="txtTimeStart">...</span></div>
-                    <div class="t-row end"><span>Thời gian kết thúc</span><span id="txtTimeEnd">...</span></div>
-                </div>
-            </div>
-            <div class="tab-content" id="contentPT">
-                <div class="filters">
-                    <button class="filter-btn" id="fSai">Sai(0)</button>
-                    <button class="filter-btn" id="fDung">Đúng(0)</button>
-                    <button class="filter-btn active" id="fTatCa">Tất cả(0)</button>
-                </div>
-                <div id="reviewListContainer"></div>
             </div>
         </div>
-    </div>
+
+        <!-- MODAL CONFIRM SUBMIT -->
+        <div class="modal" id="modalConfirmSubmit">
+            <div class="modal-content" style="text-align:center;">
+                <div class="modal-title" style="color:var(--primary);margin-bottom:15px;">Xác nhận Nộp bài</div>
+                <p id="submitConfirmMessage" style="margin-bottom:20px;">Bạn có chắc chắn muốn nộp bài không?</p>
+                <div style="display:flex;gap:10px;justify-content:center;">
+                    <button class="btn-nav" id="btnCancelSubmit">Hủy</button>
+                    <button class="btn-nav" id="btnConfirmSubmit"
+                        style="background:var(--primary);color:white;border-color:var(--primary);">Nộp Bài</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL CONFIRM EXIT -->
+        <div class="modal" id="modalConfirmExit">
+            <div class="modal-content" style="text-align:center;">
+                <div class="modal-title" style="color:var(--red-accent);margin-bottom:15px;">Xác nhận Thoát</div>
+                <p id="exitConfirmMessage" style="margin-bottom:20px;">Bạn muốn thoát?</p>
+                <div style="display:flex;gap:10px;justify-content:center;">
+                    <button class="btn-nav" id="btnCancelExit">Hủy</button>
+                    <button class="btn-nav" id="btnConfirmExit"
+                        style="background:var(--red-accent);color:white;border-color:var(--red-accent);">Đồng ý</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- SCREEN: EXAM HISTORY -->
+        <div id="screenHistory" class="screen">
+            <div class="card-box exam-history-box">
+                <button id="btnBackHomeFromHistory" class="btn-topic-back-top" type="button">Quay lại trang
+                    trước</button>
+                <h2 style="color:#2c3e50;font-size:22px;margin:0 0 6px 0;font-weight:700;text-transform:uppercase;">Lịch
+                    sử Kiểm tra</h2>
+                <p style="color:#666;font-size:14px;margin:0 0 16px 0;">Kết quả các lần làm bài Kiểm tra của bạn.</p>
+                <div class="res-tabs exam-history-tabs" role="tablist" aria-label="Lọc lịch sử">
+                    <div class="res-tab active" id="historyTabTopic" data-history-tab="topic" role="tab">Theo lĩnh vực
+                    </div>
+                    <div class="res-tab" id="historyTabMixed" data-history-tab="mixed" role="tab">Tổng hợp</div>
+                </div>
+                <div id="examHistoryList" class="exam-history-list"></div>
+            </div>
+        </div>
+
+        <!-- SCREEN: RESULT -->
+        <div id="screenResult" class="screen">
+            <div class="exam-title" style="margin-bottom:5px;" id="resMainTitle"></div>
+            <div class="res-subtitle" id="resSub1"></div>
+            <div class="res-card">
+                <div class="res-tabs">
+                    <div class="res-tab active" id="tabKQ">Kết quả</div>
+                    <div class="res-tab" id="tabPT">Phân tích</div>
+                </div>
+                <div class="tab-content active" id="contentKQ">
+                    <div class="charts-container">
+                        <div class="circle-inner-wrap" style="text-align:center;">
+                            <div class="circle-wrap blue" id="cPercent">
+                                <div class="circle-inner">
+                                    <div class="c-label">Phần Trăm<br>Điểm</div>
+                                    <div class="c-val" id="valPercent">0%</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="circle-inner-wrap" style="text-align:center;">
+                            <div class="circle-wrap red" id="cScore">
+                                <div class="circle-inner">
+                                    <div class="c-label">Điểm</div>
+                                    <div class="c-val" id="valScore">0</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="circle-inner-wrap" style="text-align:center;">
+                            <div class="circle-wrap green" id="cTime">
+                                <div class="circle-inner">
+                                    <div class="c-label">Thời Gian</div>
+                                    <div class="c-val" id="valTime">0 giây</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="time-table">
+                        <div class="t-row start"><span>Thời gian bắt đầu</span><span id="txtTimeStart">...</span></div>
+                        <div class="t-row end"><span>Thời gian kết thúc</span><span id="txtTimeEnd">...</span></div>
+                    </div>
+                </div>
+                <div class="tab-content" id="contentPT">
+                    <div id="resAnalysisFilters" class="filters">
+                        <button class="filter-btn" id="fSai">Sai(0)</button>
+                        <button class="filter-btn" id="fDung">Đúng(0)</button>
+                        <button class="filter-btn active" id="fTatCa">Tất cả(0)</button>
+                    </div>
+                    <div id="reviewListContainer"></div>
+                </div>
+            </div>
+        </div>
     </main>
 
     <footer class="site-footer">Copyright @2026. Bản quyền doancongbinhthanglong.bccb@gmail.com</footer>
 
     <script type="module" src="js/entries/quiz-app.js"></script>
 </body>
+
 </html>

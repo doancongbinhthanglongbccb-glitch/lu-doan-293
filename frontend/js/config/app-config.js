@@ -18,7 +18,7 @@ export const ROUTES = {
  * Main application configuration.
  */
 export const APP_CONFIG = {
-    APP_NAME: 'Hệ thống ôn tập trắc nghiệm',
+    APP_NAME: 'HỆ THỐNG ÔN - THI TRẮC NGHIỆM',
     STORAGE_KEYS,
     USER_STATUS,
     QUESTION_TYPES: QUESTION_TYPE_OPTIONS,

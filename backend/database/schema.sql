@@ -36,7 +36,7 @@ CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id);
 
 CREATE TABLE IF NOT EXISTS quiz_meta (
     id          INTEGER PRIMARY KEY CHECK (id = 1),
-    title       TEXT NOT NULL DEFAULT 'Hệ thống ôn tập trắc nghiệm',
+    title       TEXT NOT NULL DEFAULT 'HỆ THỐNG ÔN - THI TRẮC NGHIỆM',
     updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
     seed_applied INTEGER NOT NULL DEFAULT 0,
     practice_mixed_question_count INTEGER NOT NULL DEFAULT 30,

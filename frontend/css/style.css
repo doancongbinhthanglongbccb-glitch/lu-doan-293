@@ -946,7 +946,7 @@
         }
         .login-container {
             width: 100%;
-            max-width: 420px;
+            max-width: 460px;
             padding: 20px;
         }
         .login-card {
@@ -969,9 +969,11 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
         .login-header h1 {
-            font-size: 20px;
+            font-size: 16px;
             color: #2c3e50;
             margin: 0 0 5px;
+            text-transform: uppercase;
+            white-space: nowrap;
         }
         .login-header p {
             color: #888;

@@ -408,6 +408,17 @@ function seedQuizMeta() {
     }
 }
 
+const LEGACY_QUIZ_TITLE = 'Hệ thống ôn tập trắc nghiệm';
+
+function renameDefaultQuizTitle() {
+    const db = getDb();
+    const row = db.prepare('SELECT title FROM quiz_meta WHERE id = 1').get();
+    if (row?.title === LEGACY_QUIZ_TITLE) {
+        db.prepare('UPDATE quiz_meta SET title = ? WHERE id = 1').run(DEFAULT_QUIZ_TITLE);
+        console.log('[migrate] Updated quiz_meta.title.');
+    }
+}
+
 /**
  * Seed mẫu từ questions.json — CHỈ lần đầu cài đặt (seed_applied = 0).
  * Không chạy lại khi admin đã xóa hết câu hỏi rồi redeploy.
@@ -449,6 +460,7 @@ try {
     ensureQuizMetaVersion();
     seedAdmin();
     seedQuizMeta();
+    renameDefaultQuizTitle();
     seedQuizFromFile();
     console.log('[migrate] Done.');
 } finally {
