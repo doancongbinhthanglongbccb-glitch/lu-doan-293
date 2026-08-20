@@ -7,13 +7,17 @@ import { sendError } from '../utils/response.js';
  */
 // eslint-disable-next-line no-unused-vars
 export function errorHandler(err, req, res, next) {
-    console.error('[error]', err);
-
     if (err.name === 'UnauthorizedError') {
+        console.warn('[error]', 401, err.message);
         return sendError(res, 'Phiên đăng nhập không hợp lệ.', 401);
     }
 
     const status = err.status || err.statusCode || 500;
+    if (status >= 500) {
+        console.error('[error]', err);
+    } else {
+        console.warn('[error]', status, err.message);
+    }
     const message =
         status === 500 && !env.isDev
             ? 'Lỗi máy chủ. Vui lòng thử lại sau.'
