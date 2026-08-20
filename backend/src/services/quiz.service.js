@@ -134,7 +134,7 @@ export function gradePracticeQuestion(userId, body = {}) {
         err.status = 404;
         throw err;
     }
-    if (examModel.userHasInProgressQuestion(userId, questionId)) {
+    if (examModel.userHasQuestionInUnclosedSession(userId, questionId)) {
         const err = new Error('Không thể ôn tập câu hỏi khi đang trong phiên Kiểm tra.');
         err.status = 403;
         throw err;

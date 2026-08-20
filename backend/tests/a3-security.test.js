@@ -81,6 +81,7 @@ describe('A3 — grade-question oracle, wrong-review strip, timer, submit keys',
     let userCToken;
     let userDToken;
     let userEToken;
+    let userFToken;
     let topicId;
     let sessionId;
     let lateSessionId;
@@ -109,6 +110,7 @@ describe('A3 — grade-question oracle, wrong-review strip, timer, submit keys',
         insertUser.run('10000003', 'User C', hash, 'user', 'approved');
         insertUser.run('10000004', 'User D', hash, 'user', 'approved');
         insertUser.run('10000005', 'User E', hash, 'user', 'approved');
+        insertUser.run('10000006', 'User F', hash, 'user', 'approved');
 
         db.prepare('INSERT INTO topics (id, title, sort_order, parent_id) VALUES (1, ?, 0, NULL)').run(
             'Lĩnh vực A'
@@ -166,6 +168,7 @@ describe('A3 — grade-question oracle, wrong-review strip, timer, submit keys',
         userCToken = signAccessToken({ id: 4, militaryId: '10000003', role: 'user' });
         userDToken = signAccessToken({ id: 5, militaryId: '10000004', role: 'user' });
         userEToken = signAccessToken({ id: 6, militaryId: '10000005', role: 'user' });
+        userFToken = signAccessToken({ id: 7, militaryId: '10000006', role: 'user' });
 
         ({ server, base } = await listen(createApp()));
         console.log(`[a3-security] ${stamp} server ${base}`);
@@ -310,6 +313,36 @@ describe('A3 — grade-question oracle, wrong-review strip, timer, submit keys',
         assert.equal(jsonHasIsCorrect(got.json), false);
     });
 
+    it('7. nộp xong khi đợt còn open → grade-question cùng questionId bị từ chối', async () => {
+        const started = await api(base, userFToken, 'POST', `/api/exam/sessions/${sessionId}/start`, {
+            sessionSetId: setId,
+            topicId
+        });
+        assert.equal(started.status, 200, JSON.stringify(started.json));
+
+        const submitted = await api(base, userFToken, 'POST', `/api/exam/sessions/${sessionId}/submit`, {
+            topicId,
+            answers: [
+                { questionId: qIdA, selected: [0] },
+                { questionId: qIdB, selected: [0] }
+            ]
+        });
+        assert.equal(submitted.status, 200, JSON.stringify(submitted.json));
+        assert.equal(submitted.json.data.questions, undefined);
+
+        const got = await api(base, userFToken, 'POST', '/api/quiz/grade-question', {
+            questionId: qIdA,
+            selected: [1]
+        });
+        const raw = JSON.stringify(got.json);
+        console.log(`[a3-security] ${stamp} T7 grade after open submit status=${got.status} body=${raw}`);
+        assert.equal(got.status, 403);
+        assert.equal(got.json.success, false);
+        assert.match(got.json.message || '', /Kiểm tra/i);
+        assert.equal(raw.includes('"explanation"'), false);
+        assert.equal(jsonHasIsCorrect(got.json), false);
+    });
+
     it('6. submit khi đợt open → không questions; khi closed → có đáp án', async () => {
         const startD = await api(base, userDToken, 'POST', `/api/exam/sessions/${sessionId}/start`, {
             sessionSetId: setId,
@@ -353,5 +386,20 @@ describe('A3 — grade-question oracle, wrong-review strip, timer, submit keys',
         assert.equal(closedSubmit.json.data.correct, 2);
         assert.ok(Array.isArray(closedSubmit.json.data.questions));
         assert.equal(jsonHasIsCorrect(closedSubmit.json), true);
+    });
+
+    it('8. đợt closed → grade-question cùng questionId đã nộp được phép xem đáp án', async () => {
+        const got = await api(base, userFToken, 'POST', '/api/quiz/grade-question', {
+            questionId: qIdA,
+            selected: [1]
+        });
+        const raw = JSON.stringify(got.json);
+        console.log(`[a3-security] ${stamp} T8 grade after session closed status=${got.status} body=${raw}`);
+        assert.equal(got.status, 200, raw);
+        assert.equal(got.json.data.answered, true);
+        assert.equal(got.json.data.correct, false);
+        assert.equal(raw.includes('"isCorrect"'), false);
+        assert.ok(got.json.data.explanation);
+        assert.deepEqual(got.json.data.explanation.correctIndexes, [0]);
     });
 });
