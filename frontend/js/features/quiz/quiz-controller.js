@@ -134,7 +134,6 @@ export class QuizController {
     _cacheDomRefs() {
         ScreenManager.init([
             'screenHome',
-            'screenSetup',
             'screenQuiz',
             'screenResult',
             'screenTopicReview',
@@ -189,15 +188,7 @@ export class QuizController {
      */
     _setupHomeScreen(originalData) {
         const totalQ = countAllQuestions(originalData);
-        $('homeTitle').textContent = originalData.title || APP_CONFIG.APP_NAME;
-
-        const examQCount = $('examQCount');
-        if (examQCount) {
-            examQCount.value = totalQ;
-            examQCount.max = totalQ;
-        }
-        const label = $('examQCountLabel');
-        if (label) label.textContent = `Số lượng câu hỏi (Tối đa ${totalQ}):`;
+        $('homeTitle').textContent = APP_CONFIG.APP_NAME;
 
         if (totalQ === 0) {
             Toast.info('Chưa có câu hỏi. Vào Quản trị để import dữ liệu hoặc đồng bộ Online.');
@@ -384,11 +375,19 @@ export class QuizController {
             store.setState({ answers });
             return;
         }
-        const result = await gradeQuestionApi.grade({
-            questionId: q.dbId,
-            selected: st.selected,
-            textValue: st.textValue || ''
-        });
+        let result;
+        try {
+            result = await gradeQuestionApi.grade({
+                questionId: q.dbId,
+                selected: st.selected,
+                textValue: st.textValue || ''
+            });
+        } catch (err) {
+            if (err.status === 403 && /phiên Kiểm tra/i.test(err.message || '')) {
+                return;
+            }
+            throw err;
+        }
         st.isCorrect = !!result.correct;
         st.isLocked = true;
         st.explanation = result.explanation || null;
@@ -431,7 +430,7 @@ export class QuizController {
             this._checkSubmitStarted = true;
         }
 
-        const finish = async ({ serverCorrect, hasAnswerKeys } = {}) => {
+        const finish = async ({ serverCorrect, hasAnswerKeys, grades } = {}) => {
             const state = store.getState();
             const answers = { ...state.answers };
             let scoreCount = 0;
@@ -440,9 +439,14 @@ export class QuizController {
             const skipLocalWrongHistory = state.mode === QUIZ_MODES.CHECK;
 
             if (state.mode === QUIZ_MODES.CHECK && !hasAnswerKeys) {
-                state.quizData.questions.forEach((_, i) => {
+                const byId = new Map(
+                    (Array.isArray(grades) ? grades : []).map(g => [Number(g.questionId), g])
+                );
+                state.quizData.questions.forEach((q, i) => {
                     const st = answers[i] || emptyAnswerState();
                     st.isLocked = true;
+                    const g = byId.get(Number(q.dbId));
+                    if (g) st.isCorrect = !!g.correct;
                     answers[i] = st;
                 });
                 scoreCount = Number.isFinite(serverCorrect) ? serverCorrect : 0;
@@ -539,7 +543,8 @@ export class QuizController {
                     }
                     finish({
                         serverCorrect: payload?.correct,
-                        hasAnswerKeys: Array.isArray(payload?.questions) && payload.questions.length > 0
+                        hasAnswerKeys: Array.isArray(payload?.questions) && payload.questions.length > 0,
+                        grades: payload?.grades
                     }).catch(err => {
                         handleError(err, { context: 'QuizController.submitExam', fallbackKey: 'NETWORK' });
                     });
@@ -595,6 +600,7 @@ export class QuizController {
             scoreOutOf10,
             elapsedSec: timerState.elapsed
         });
+        this._switchResultTab('KQ');
         this._renderReviewList();
     }
 
@@ -796,8 +802,8 @@ export class QuizController {
                 const btn = document.createElement('button');
                 btn.type = 'button';
                 btn.className = 'btn-large btn-orange';
-                btn.textContent = 'Trộn tổng hợp';
-                btn.onclick = () => this._showCheckSets(session, null, 'Trộn tổng hợp');
+                btn.textContent = 'Tổng hợp';
+                btn.onclick = () => this._showCheckSets(session, null, 'Tổng hợp');
                 container.appendChild(btn);
             }
             if (!branches.hasTopic && !branches.hasMixed) {
@@ -952,7 +958,7 @@ export class QuizController {
             const records = await checkExamApi.loadCheckHistory({ branch: tab });
             const emptyMessage =
                 tab === 'mixed'
-                    ? 'Chưa có bài Kiểm tra trộn tổng hợp.'
+                    ? 'Chưa có bài Kiểm tra tổng hợp.'
                     : 'Chưa có bài Kiểm tra theo lĩnh vực.';
             this.examHistoryRenderer.render(records, emptyMessage);
             this.showScreen('screenHistory');
@@ -1394,8 +1400,6 @@ export class QuizController {
                 this._showExamHistory();
             });
         });
-        this._bindClick('btnBackHomeFromSetup', () => this.showScreen('screenHome'));
-
         this._bindClick('btnModeReviewWrong', () => {
             const count = this.wrongHistoryService?.getWrongCount() || 0;
             if (count === 0) {
@@ -1424,10 +1428,6 @@ export class QuizController {
         ModalManager.bindConfirm('modalConfirmExit', 'btnConfirmExit', 'btnCancelExit', () =>
             this._onConfirmExit()
         );
-
-        this._bindClick('btnStartExam', () => {
-            Toast.info('Thi thử đã được gỡ. Dùng Kiểm tra khi admin mở đợt.');
-        });
 
         this._bindClick('btnStartWrongReview', async () => {
             const count = parseInt($('wrongQCount').value, 10);
@@ -1554,10 +1554,14 @@ export class QuizController {
      */
     _switchResultTab(tab) {
         const isKQ = tab === 'KQ';
-        $('tabKQ').classList.toggle('active', isKQ);
-        $('tabPT').classList.toggle('active', !isKQ);
-        $('contentKQ').classList.toggle('active', isKQ);
-        $('contentPT').classList.toggle('active', !isKQ);
+        const tabKQ = $('tabKQ');
+        const tabPT = $('tabPT');
+        const contentKQ = $('contentKQ');
+        const contentPT = $('contentPT');
+        tabKQ?.classList.toggle('active', isKQ);
+        tabPT?.classList.toggle('active', !isKQ);
+        contentKQ?.classList.toggle('active', isKQ);
+        contentPT?.classList.toggle('active', !isKQ);
     }
 
     /**

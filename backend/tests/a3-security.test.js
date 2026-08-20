@@ -328,7 +328,7 @@ describe('A3 — grade-question oracle, wrong-review strip, timer, submit keys',
             ]
         });
         assert.equal(submitted.status, 200, JSON.stringify(submitted.json));
-        assert.equal(submitted.json.data.questions, undefined);
+        assert.ok(Array.isArray(submitted.json.data.questions));
 
         const got = await api(base, userFToken, 'POST', '/api/quiz/grade-question', {
             questionId: qIdA,
@@ -343,7 +343,7 @@ describe('A3 — grade-question oracle, wrong-review strip, timer, submit keys',
         assert.equal(jsonHasIsCorrect(got.json), false);
     });
 
-    it('6. submit khi đợt open → không questions; khi closed → có đáp án', async () => {
+    it('6. submit luôn trả đáp án (đợt open hoặc closed)', async () => {
         const startD = await api(base, userDToken, 'POST', `/api/exam/sessions/${sessionId}/start`, {
             sessionSetId: setId,
             topicId
@@ -363,8 +363,8 @@ describe('A3 — grade-question oracle, wrong-review strip, timer, submit keys',
         assert.equal(typeof openSubmit.json.data.score, 'number');
         assert.equal(openSubmit.json.data.total, 2);
         assert.equal(openSubmit.json.data.correct, 1);
-        assert.equal(openSubmit.json.data.questions, undefined);
-        assert.equal(openRaw.includes('"isCorrect"'), false);
+        assert.ok(Array.isArray(openSubmit.json.data.questions));
+        assert.equal(jsonHasIsCorrect(openSubmit.json), true);
 
         const startE = await api(base, userEToken, 'POST', `/api/exam/sessions/${sessionId}/start`, {
             sessionSetId: setId,

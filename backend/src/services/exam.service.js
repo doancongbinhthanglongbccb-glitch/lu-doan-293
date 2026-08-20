@@ -429,11 +429,12 @@ export function submitSessionForUser(sessionId, userId, body) {
 
     let correct = 0;
     let answered = 0;
-    questions.forEach(q => {
+    const grades = questions.map(q => {
         const grade = gradeQuestion(q, byId.get(q.dbId) || null);
         if (grade.answered) answered += 1;
         if (grade.isCorrect) correct += 1;
         wrongModel.recordAnswerResult(userId, q.hash, grade.isCorrect);
+        return { questionId: q.dbId, correct: !!grade.isCorrect };
     });
     const total = questions.length || 1;
     const score = Math.round((correct / total) * 100) / 10;
@@ -460,10 +461,7 @@ export function submitSessionForUser(sessionId, userId, body) {
         completedAt: new Date().toISOString()
     });
 
-    const payload = { ok: true, score, total, correct };
-    if (session.status === EXAM_SESSION_STATUS.CLOSED) {
-        payload.questions = questions;
-    }
+    const payload = { ok: true, score, total, correct, grades, questions };
     return payload;
 }
 

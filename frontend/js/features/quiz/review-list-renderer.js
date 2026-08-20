@@ -119,6 +119,8 @@ export class ReviewListRenderer {
             corAnsText = keyLetters.length ? keyLetters.join(', ') : st?.isCorrect ? 'Đúng' : '—';
         }
 
+        const showAnswerKey = (q.answers || []).some(a => a.isCorrect);
+
         return (
             wm +
             '<div class="rev-q-container">' +
@@ -132,7 +134,10 @@ export class ReviewListRenderer {
             '<div class="rev-bot" style="justify-content:space-between;">' +
             '<div style="display:flex;gap:20px;flex-wrap:wrap;">' +
             `<div>Đáp Án Của Bạn: <b>${escapeAttr(userAnsText)}</b></div>` +
-            `<div>Đáp Án Đúng: <b style="color:var(--green-accent);">${escapeAttr(corAnsText)}</b></div></div>` +
+            (showAnswerKey
+                ? `<div>Đáp Án Đúng: <b style="color:var(--green-accent);">${escapeAttr(corAnsText)}</b></div>`
+                : '') +
+            `</div>` +
             `<div>Điểm: ${ptsEarned.toFixed(2)}/${ptsPerQ.toFixed(2)}</div></div></div></div>`
         );
     }
