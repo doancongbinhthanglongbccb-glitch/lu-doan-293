@@ -3,7 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import cors from 'cors';
 import helmet from 'helmet';
-import { env } from './config/env.js';
+import { env, getStoragePublicOrigin } from './config/env.js';
 import { getDb } from '../database/connection.js';
 import apiRoutes from './routes/index.js';
 import { errorHandler } from './middleware/error-handler.js';
@@ -20,6 +20,22 @@ app.set('trust proxy', 1);
 
 getDb();
 
+const storageOrigin = getStoragePublicOrigin();
+const connectSrc = ["'self'"];
+const mediaSrc = ["'self'"];
+if (storageOrigin) {
+    connectSrc.push(storageOrigin);
+    mediaSrc.push(storageOrigin);
+}
+if (env.isDev) {
+    ['http://localhost:9000', 'http://127.0.0.1:9000'].forEach(origin => {
+        if (!connectSrc.includes(origin)) {
+            connectSrc.push(origin);
+            mediaSrc.push(origin);
+        }
+    });
+}
+
 app.use(
     helmet({
         contentSecurityPolicy: {
@@ -29,7 +45,8 @@ app.use(
                 styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
                 fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
                 imgSrc: ["'self'", 'data:'],
-                connectSrc: ["'self'"],
+                connectSrc,
+                mediaSrc,
                 frameSrc: ["'none'"],
                 objectSrc: ["'none'"],
                 baseUri: ["'self'"]

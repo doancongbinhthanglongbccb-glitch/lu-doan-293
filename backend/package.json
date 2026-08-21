@@ -8,13 +8,15 @@
     "node": ">=22.0.0"
   },
   "scripts": {
-    "dev": "nodemon src/index.js",
+    "dev": "nodemon --ext js,mjs,cjs,json,env src/index.js",
     "start": "node database/migrate.js && node src/index.js",
     "start:server": "node src/index.js",
     "migrate": "node database/migrate.js",
     "test": "node --test tests/*.test.js"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1115.0",
+    "@aws-sdk/s3-request-presigner": "^3.1115.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
