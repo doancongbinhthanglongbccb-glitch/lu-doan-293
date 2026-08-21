@@ -129,6 +129,13 @@ export function initAdminLectures({ getBattalions }) {
         return lectureType === 'document' ? 'application/pdf' : 'video/mp4';
     }
 
+    function formatBytes(n) {
+        const bytes = Number(n) || 0;
+        if (bytes < 1024) return `${bytes} B`;
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    }
+
     function setProgress(ratio, visible) {
         const wrap = $('lectureUploadProgressWrap');
         const bar = $('lectureUploadProgress');
@@ -142,7 +149,7 @@ export function initAdminLectures({ getBattalions }) {
             xhr.open('PUT', url);
             xhr.setRequestHeader('Content-Type', contentType);
             xhr.upload.onprogress = e => {
-                if (e.lengthComputable) onProgress(e.loaded / e.total);
+                if (e.lengthComputable) onProgress(e.loaded, e.total);
             };
             xhr.onload = () => {
                 if (xhr.status >= 200 && xhr.status < 300) resolve();
@@ -293,9 +300,17 @@ export function initAdminLectures({ getBattalions }) {
                 size_bytes: file.size
             });
             setProgress(0, true);
-            showLoading('Đang tải tệp...');
-            await putFile(created.upload_url, file, content_type, ratio => setProgress(ratio, true));
-            showLoading('Đang xác nhận...');
+            showLoading(`Đang tải tệp... 0% (0 B / ${formatBytes(file.size)})`, { percent: 0 });
+            await putFile(created.upload_url, file, content_type, (loaded, total) => {
+                const ratio = total ? loaded / total : 0;
+                const pct = Math.round(ratio * 100);
+                setProgress(ratio, true);
+                showLoading(
+                    `Đang tải tệp... ${pct}% (${formatBytes(loaded)} / ${formatBytes(total)})`,
+                    { percent: pct }
+                );
+            });
+            showLoading('Đang hoàn tất trên kho lưu trữ...', { percent: 100 });
             await lectureApi.confirmLecture(created.id);
             setProgress(1, true);
             ModalManager.close('lectureModal');

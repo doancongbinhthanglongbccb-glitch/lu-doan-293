@@ -108,7 +108,7 @@ File video/PDF **không** lưu trên persistent disk 10GB. Disk chỉ cho SQLite
     "AllowedMethods": ["GET", "PUT", "HEAD"],
     "AllowedHeaders": ["*"],
     "ExposeHeaders": ["ETag", "Content-Length", "Content-Type"],
-    "MaxAgeSec": 3600
+    "MaxAgeSeconds": 3600
   }
 ]
 ```

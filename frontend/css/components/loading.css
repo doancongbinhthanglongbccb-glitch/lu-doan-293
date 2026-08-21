@@ -32,6 +32,17 @@
     margin: 0;
 }
 
+.loading-progress-wrap {
+    width: min(280px, 70vw);
+}
+
+.loading-progress {
+    display: block;
+    width: 100%;
+    height: 8px;
+    accent-color: var(--primary);
+}
+
 @keyframes spin {
     to {
         transform: rotate(360deg);
