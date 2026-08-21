@@ -32,6 +32,28 @@ export const EXAM_SESSION_TYPES = {
     MIXED: 'mixed'
 };
 
+export const LECTURE_TYPES = {
+    VIDEO: 'video',
+    DOCUMENT: 'document'
+};
+
+export const LECTURE_STATUS = {
+    PENDING: 'pending',
+    READY: 'ready',
+    FAILED: 'failed'
+};
+
+/** Whitelist MIME tường minh — không mở rộng bằng dấu `...`. */
+export const LECTURE_MIME_WHITELIST = ['video/mp4', 'video/webm', 'application/pdf'];
+
+export const LECTURE_MIME_BY_TYPE = {
+    [LECTURE_TYPES.VIDEO]: ['video/mp4', 'video/webm'],
+    [LECTURE_TYPES.DOCUMENT]: ['application/pdf']
+};
+
+export const LECTURE_PUT_EXPIRES_SEC = 20 * 60;
+export const LECTURE_GET_EXPIRES_SEC = 90 * 60;
+
 /** Trần độ sâu CTE cây topic — chặn treo khi parent_id tạo chu trình. */
 export const TOPIC_TREE_MAX_DEPTH = 32;
 

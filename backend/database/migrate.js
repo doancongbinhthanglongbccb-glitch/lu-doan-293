@@ -183,6 +183,34 @@ function ensureExamTables() {
     console.log('[migrate] Exam session tables ensured.');
 }
 
+function ensureLectures() {
+    const db = getDb();
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS lectures (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            title           TEXT NOT NULL,
+            description     TEXT,
+            type            TEXT NOT NULL CHECK(type IN ('video', 'document')),
+            storage_key     TEXT NOT NULL,
+            original_name   TEXT,
+            mime_type       TEXT,
+            size_bytes      INTEGER,
+            status          TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'ready', 'failed')),
+            created_by      INTEGER NOT NULL REFERENCES users(id),
+            created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE TABLE IF NOT EXISTS lecture_battalions (
+            lecture_id      INTEGER NOT NULL REFERENCES lectures(id) ON DELETE CASCADE,
+            battalion_id    INTEGER NOT NULL REFERENCES battalions(id),
+            PRIMARY KEY (lecture_id, battalion_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_lecture_battalions_battalion
+            ON lecture_battalions(battalion_id);
+    `);
+    console.log('[migrate] Lecture tables ensured.');
+}
+
 function ensureExamSessionBattalions() {
     const db = getDb();
     db.exec(`
@@ -456,6 +484,7 @@ try {
     ensureExamTables();
     ensureExamSessionSetsV2();
     ensureExamSessionBattalions();
+    ensureLectures();
     ensureExamTimeBufferMinutes();
     ensureQuizMetaVersion();
     seedAdmin();
