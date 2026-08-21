@@ -34,6 +34,7 @@ import * as practiceMixedApi from '../../services/quiz/practice-mixed-api.js';
 import * as topicReviewApi from '../../services/quiz/topic-review-api.js';
 import * as wrongReviewApi from '../../services/quiz/wrong-review-api.js';
 import * as gradeQuestionApi from '../../services/quiz/grade-question-api.js';
+import { initUserLectures } from '../lectures/user-lectures.js';
 
 /**
  * Main quiz application controller — orchestrates UI and business logic.
@@ -140,7 +141,9 @@ export class QuizController {
             'screenPracticeMixed',
             'screenCheck',
             'screenSetupWrong',
-            'screenHistory'
+            'screenHistory',
+            'screenLectures',
+            'screenLectureView'
         ]);
 
         this.btnExitTop = $('btnExitTop');
@@ -1388,6 +1391,7 @@ export class QuizController {
             this.showScreen('screenHome');
         });
         this._bindClick('btnModeCheck', () => this._openCheckScreen());
+        initUserLectures({ showScreen: id => this.showScreen(id) });
         this._bindClick('btnBackHomeFromCheck', () => this._onCheckBack());
         this._bindClick('btnModeHistory', () => this._showExamHistory());
         this._bindClick('btnBackHomeFromHistory', () => this.showScreen('screenHome'));

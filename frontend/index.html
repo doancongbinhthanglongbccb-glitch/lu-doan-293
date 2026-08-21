@@ -49,7 +49,30 @@
                     <button type="button" class="mode-item" id="btnModeReviewWrong">
                         <h3>Ôn tập các câu sai</h3>
                     </button>
+                    <button type="button" class="mode-item" id="btnModeLectures">
+                        <h3>Bài giảng</h3>
+                    </button>
                 </div>
+            </div>
+        </div>
+
+        <!-- SCREEN: BÀI GIẢNG -->
+        <div id="screenLectures" class="screen">
+            <div class="card-box lecture-page">
+                <button id="btnBackHomeFromLectures" class="lecture-back" type="button">← Quay lại trang trước</button>
+                <h2 class="lecture-page-title">Bài giảng</h2>
+                <p class="lecture-page-kicker">Tài liệu và video bài giảng của Lữ đoàn (theo tiểu đoàn của bạn).</p>
+                <div id="lectureUserList" class="lecture-list list-scroll"></div>
+            </div>
+        </div>
+
+        <!-- SCREEN: XEM BÀI GIẢNG -->
+        <div id="screenLectureView" class="screen">
+            <div class="card-box lecture-page">
+                <button id="btnBackLecturesFromView" class="lecture-back" type="button">← Quay lại danh sách</button>
+                <h2 id="lectureViewTitle" class="lecture-page-title lecture-page-title--detail">Bài giảng</h2>
+                <p id="lectureViewDesc" class="lecture-page-kicker"></p>
+                <div id="lectureViewBody" class="lecture-view-body"></div>
             </div>
         </div>
 

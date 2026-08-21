@@ -24,7 +24,7 @@ export const ScreenManager = {
      * @param {HTMLElement|null} [options.exitBtn]
      * @param {string[]} [options.hideExitOn]
      */
-        show(screenId, { exitBtn, hideExitOn = ['screenHome', 'screenSetupWrong', 'screenPracticeMixed', 'screenCheck'] } = {}) {
+        show(screenId, { exitBtn, hideExitOn = ['screenHome', 'screenSetupWrong', 'screenPracticeMixed', 'screenCheck', 'screenLectures', 'screenLectureView'] } = {}) {
         Object.values(screens).forEach(el => el?.classList.remove('active'));
         const target = screens[screenId] || $(screenId);
         if (target) target.classList.add('active');
