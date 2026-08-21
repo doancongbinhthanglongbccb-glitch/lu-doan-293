@@ -44,7 +44,7 @@ SQLite **phải** nằm trên persistent disk — ephemeral storage mất dữ l
 2. **Process**: web
 3. **Path**: `/app/data` — **chỉ thư mục**, không ghi `/app/data/cbquiz.db`  
    (file DB do app tạo qua env `DB_PATH`)
-4. **Size**: 10 GB (đủ cho quiz + users)
+4. **Size**: 10 GB (đủ cho quiz + users — **không** lưu video/tài liệu bài giảng trên disk này)
 
 Sau đó set env:
 
@@ -70,6 +70,12 @@ Bật **Build** + **Runtime** cho các biến cần lúc migrate và khi chạy 
 | `ADMIN_PASSWORD` | ✓ | ✓ | Mật khẩu mạnh ≥ 6 ký tự — seed admin `00000001` lần đầu (Dockerfile: migrate chạy lúc start) |
 | `DB_PATH` | ✓ | ✓ | `/app/data/cbquiz.db` |
 | `PORT` | | | Sevalla **tự inject** — không cần set |
+| `STORAGE_ENDPOINT` | | ✓ | R2 S3 API, ví dụ `https://<accountid>.r2.cloudflarestorage.com` |
+| `STORAGE_ACCESS_KEY` | | ✓ | R2 Access Key ID |
+| `STORAGE_SECRET_KEY` | | ✓ | R2 Secret Access Key |
+| `STORAGE_BUCKET` | | ✓ | `lectures` |
+| `STORAGE_REGION` | | ✓ | `auto` |
+| `STORAGE_PUBLIC_ENDPOINT` | | ✓ | Cùng URL browser gọi PUT/GET được (thường trùng `STORAGE_ENDPOINT` trên R2). **Bắt buộc** nếu endpoint nội bộ khác URL công khai |
 
 Tùy chọn:
 
@@ -84,6 +90,33 @@ Import nhanh: copy nội dung `backend/.env.example`, sửa giá trị, **Import
 > `ADMIN_PASSWORD` chỉ dùng khi DB trống (migrate seed admin `00000001`). Redeploy sau không cần đổi trừ khi xóa disk.
 
 > **Ngân hàng câu hỏi:** `questions.json` chỉ seed **một lần** khi DB mới. Xóa hết câu hỏi rồi deploy lại **không** bị khôi phục mẫu (trừ khi xóa cả file DB trên persistent disk).
+
+---
+
+## Cloudflare R2 (bài giảng)
+
+File video/PDF **không** lưu trên persistent disk 10GB. Disk chỉ cho SQLite.
+
+1. Cloudflare Dashboard → **R2** → Create bucket tên `lectures` (hoặc tên khớp `STORAGE_BUCKET`)
+2. **Manage R2 API Tokens** → tạo token có quyền đọc/ghi bucket đó
+3. CORS trên bucket (browser PUT/GET từ origin Sevalla), ví dụ:
+
+```json
+[
+  {
+    "AllowedOrigins": ["https://<tên-app>.sevalla.app"],
+    "AllowedMethods": ["GET", "PUT", "HEAD"],
+    "AllowedHeaders": ["*"],
+    "ExposeHeaders": ["ETag", "Content-Length", "Content-Type"],
+    "MaxAgeSec": 3600
+  }
+]
+```
+
+4. Set `STORAGE_*` trên Sevalla (**Runtime**; không cần lúc migrate)
+5. `STORAGE_PUBLIC_ENDPOINT` phải là URL trình duyệt gọi được — thường là `https://<accountid>.r2.cloudflarestorage.com` (path-style, `forcePathStyle: true`)
+
+Local: `docker compose up -d minio minio-init` — API `localhost:9000`, console `localhost:9001`. Backend `npm run dev` dùng `STORAGE_ENDPOINT=http://localhost:9000` (xem `backend/.env.example`).
 
 ---
 
@@ -143,7 +176,7 @@ npm run dev
 ## Bảo mật
 
 - HTML câu hỏi sanitize khi lưu (BE) và hiển thị (FE)
-- Helmet CSP: MathJax, Google Fonts, SheetJS từ CDN
+- Helmet CSP: MathJax, Google Fonts, SheetJS từ CDN; `connect-src` / `media-src` thêm origin MinIO/R2 (`STORAGE_PUBLIC_ENDPOINT`) để upload và xem video
 - Rate limit login/register: **5 lần thất bại / 15 phút / mã quân nhân** (production)
 - JWT trong localStorage — đủ cho nội bộ; nâng cao hơn → httpOnly cookie sau
 

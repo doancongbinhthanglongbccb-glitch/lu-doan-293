@@ -13,6 +13,8 @@ SQLite file: `backend/database/cbquiz.db` (gitignore)
 | `questions` | Câu hỏi (payload JSON) |
 | `wrong_answers` | Lịch sử câu sai theo user |
 | `user_quiz_history` | Lịch sử thi thử theo user |
+| `lectures` | Bài giảng (metadata; file trên R2/MinIO). `status`: `pending` (chưa confirm), `ready` (lính được thấy), `failed` (dành cho sau — MVP không tự set) |
+| `lecture_battalions` | Giới hạn tiểu đoàn. **Không có row = hiện tất cả** |
 
 Schema: [`backend/database/schema.sql`](../backend/database/schema.sql)
 

@@ -86,6 +86,21 @@ Tất cả route yêu cầu Bearer token (`requireAuth`).
 
 `GET /api/health`
 
+## Lectures — `/api/lectures`
+
+Object storage (MinIO local / R2 production). Metadata trong SQLite. File không nằm trên disk 10GB.
+
+Luồng upload: `POST /` tạo `status=pending` + `upload_url` (presigned PUT, Content-Type khóa cứng) → browser PUT file → `POST /:id/confirm` (`headObject` rồi mới `ready`). Lính chỉ thấy `ready`.
+
+| Method | Path | Auth |
+|--------|------|------|
+| GET | `/` | User — chỉ `ready`, theo tiểu đoàn (không gán = tất cả). Admin — mọi trạng thái, `?type=&battalion_id=&status=` |
+| POST | `/` | Admin — body `{ title, description?, type: video\|document, battalion_ids?, content_type, original_name, size_bytes? }`. MIME: `video/mp4`, `video/webm`, `application/pdf` |
+| POST | `/:id/confirm` | Admin (mọi admin). Chỉ khi `pending`. Thiếu object → 400, **giữ pending** |
+| PUT | `/:id` | Admin — `{ title?, description?, battalion_ids? }` (không đổi file) |
+| DELETE | `/:id` | Admin — xóa object storage rồi mới xóa row |
+| GET | `/:id/url` | User approved. Không tồn tại / chưa `ready` → **404**. `ready` nhưng sai tiểu đoàn → **403**. Admin bỏ qua check tiểu đoàn. Presigned GET TTL 1,5 giờ |
+
 ## App pages (không qua `/api`)
 
 | Path | Mô tả |
