@@ -36,6 +36,8 @@
                     aria-selected="false">Cài đặt</button>
                 <button type="button" class="admin-section-btn" data-section="exam" role="tab" aria-selected="false">Đợt
                     kiểm tra</button>
+                <button type="button" class="admin-section-btn" data-section="lectures" role="tab"
+                    aria-selected="false">Bài giảng</button>
             </nav>
 
             <!-- PANEL: CÂU HỎI -->
@@ -326,6 +328,69 @@
                     </div>
                 </div>
             </div>
+
+            <!-- PANEL: BÀI GIẢNG -->
+            <div id="panelLectures" class="admin-section-panel" role="tabpanel">
+                <div class="admin-panel-inner">
+                    <header class="admin-toolbar">
+                        <div class="toolbar-actions">
+                            <select id="lectureFilterType" class="admin-search-input admin-filter-select"
+                                aria-label="Lọc theo loại">
+                                <option value="">Tất cả loại</option>
+                                <option value="video">Video</option>
+                                <option value="document">Tài liệu</option>
+                            </select>
+                            <select id="lectureFilterBattalion" class="admin-search-input admin-filter-select"
+                                aria-label="Lọc theo tiểu đoàn">
+                                <option value="">Tất cả tiểu đoàn</option>
+                            </select>
+                            <select id="lectureFilterStatus" class="admin-search-input admin-filter-select"
+                                aria-label="Lọc theo trạng thái">
+                                <option value="">Tất cả trạng thái</option>
+                                <option value="pending">Đang xử lý</option>
+                                <option value="ready">Sẵn sàng</option>
+                                <option value="failed">Lỗi</option>
+                            </select>
+                            <button type="button" id="btnAddLecture" class="btn-toolbar btn-orange">+ Thêm bài
+                                giảng</button>
+                        </div>
+                    </header>
+
+                    <div class="admin-stats">
+                        <div class="stat-card">
+                            <span class="stat-label">Tổng</span>
+                            <span class="stat-value" id="statLectureTotal">0</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-label">Video</span>
+                            <span class="stat-value" id="statLectureVideo">0</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-label">Tài liệu</span>
+                            <span class="stat-value" id="statLectureDocument">0</span>
+                        </div>
+                    </div>
+
+                    <div class="admin-panel-body">
+                        <div class="table-wrap">
+                            <table class="admin-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Tiêu đề</th>
+                                        <th>Loại</th>
+                                        <th>Trạng thái</th>
+                                        <th>Tiểu đoàn</th>
+                                        <th>Ngày tạo</th>
+                                        <th>Thao tác</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="lectureTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div><!-- /.admin-shell -->
     </div>
 
@@ -499,6 +564,56 @@
             <div class="modal-actions modal-actions-compact">
                 <button id="btnCancelQuestion" class="btn-nav" type="button">Hủy</button>
                 <button id="btnSaveQuestion" class="btn-nav btn-modal-primary" type="button">Lưu câu hỏi</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Bài giảng -->
+    <div class="modal" id="lectureModal">
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <span class="modal-title" id="lectureModalTitle">Thêm bài giảng</span>
+            </div>
+            <div class="input-group">
+                <label for="lectureTitle">Tiêu đề</label>
+                <input type="text" id="lectureTitle" required>
+            </div>
+            <div class="input-group">
+                <label for="lectureDescription">Mô tả</label>
+                <textarea id="lectureDescription" rows="3"></textarea>
+            </div>
+            <div class="input-group">
+                <span class="admin-field-label">Loại</span>
+                <div class="admin-choice-list" role="radiogroup" aria-label="Loại bài giảng">
+                    <label class="admin-choice-item">
+                        <input type="radio" name="lectureType" value="video" checked>
+                        <span class="admin-choice-text">Video</span>
+                    </label>
+                    <label class="admin-choice-item">
+                        <input type="radio" name="lectureType" value="document">
+                        <span class="admin-choice-text">Tài liệu</span>
+                    </label>
+                </div>
+            </div>
+            <div class="input-group admin-field-battalions">
+                <span class="admin-field-label" id="lectureBattalionLabel">Tiểu đoàn (không chọn = tất cả)</span>
+                <div id="lectureBattalionList" class="admin-choice-list" role="group"
+                    aria-labelledby="lectureBattalionLabel"></div>
+            </div>
+            <div class="input-group" id="lectureUploadZone">
+                <span class="admin-field-label">Tệp</span>
+                <label class="admin-choice-item lecture-dropzone" id="lectureDropzone" for="lectureFile">
+                    <span class="admin-choice-text" id="lectureFileName">Chưa chọn tệp</span>
+                </label>
+                <input type="file" id="lectureFile" accept="video/mp4,video/webm,.mp4,.webm" hidden>
+                <p class="admin-hint">Video: MP4/WebM. Tài liệu: PDF. Kéo thả hoặc bấm để chọn.</p>
+                <div id="lectureUploadProgressWrap" hidden>
+                    <progress id="lectureUploadProgress" max="100" value="0"></progress>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" id="btnCancelLecture" class="btn-nav">Hủy</button>
+                <button type="button" id="btnSaveLecture" class="btn-nav btn-modal-primary">Lưu</button>
             </div>
         </div>
     </div>

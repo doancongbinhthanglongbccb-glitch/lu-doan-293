@@ -25,6 +25,7 @@ import { formatExamDate, renderAdminHistoryTable } from '../quiz/exam-history-re
 import { apiClient } from '../../services/api/api-client.js';
 import { unwrapPayload, pickBattalions, pickSettings } from '../../services/api/api-response.js';
 import * as checkExamApi from '../../services/exam/check-exam-api.js';
+import { initAdminLectures } from './lectures.js';
 import * as practiceMixedApi from '../../services/quiz/practice-mixed-api.js';
 import {
     isTopicParent,
@@ -83,6 +84,7 @@ export class AdminController {
         this.bindBattalionEvents();
         this.bindExamEvents();
         this.bindHistoryEvents();
+        this._lecturesPanel = initAdminLectures({ getBattalions: () => this.battalions });
 
         showLoading('Đang tải...');
 
@@ -824,6 +826,7 @@ export class AdminController {
         if (section === 'users') this.renderUserTable();
         if (section === 'settings') this.renderQuizSettings();
         if (section === 'exam') this.switchExamSubtab('sessions');
+        if (section === 'lectures') this._lecturesPanel?.refresh();
     }
 
     _syncUserSubtab() {
@@ -849,6 +852,7 @@ export class AdminController {
         $('panelUsers').classList.toggle('active', section === 'users');
         $('panelSettings').classList.toggle('active', section === 'settings');
         $('panelExam').classList.toggle('active', section === 'exam');
+        $('panelLectures')?.classList.toggle('active', section === 'lectures');
     }
 
     /**
